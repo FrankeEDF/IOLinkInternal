@@ -21,18 +21,18 @@ import struct
 
 class LoggingModbusClient(ModbusSerialClient):
     """Custom Modbus client that logs raw data traffic"""
-    
+
     def __init__(self, *args, **kwargs):
         self.raw_data_callback = kwargs.pop('raw_data_callback', None)
         super().__init__(*args, **kwargs)
-    
+
     def _send(self, request):
         """Override to capture TX data"""
         raw_data = request
         if self.raw_data_callback and raw_data:
             self.raw_data_callback('TX', raw_data)
         return super()._send(request)
-    
+
     def _recv(self, size):
         """Override to capture RX data"""
         raw_data = super()._recv(size)
@@ -52,12 +52,12 @@ class RfidModbusTestGUI:
         self.connected = False
         self.polling_active = False
         self.polling_thread = None
-        
+
         # Raw data logging
         self.raw_logging_enabled = False
         self.raw_data_buffer = []
         self.max_raw_buffer_size = 1000  # Max lines to keep in buffer
-        
+
         # RTU frame assembly for raw data
         self.rx_frame_buffer = bytearray()
         self.rx_frame_timer = None
@@ -84,17 +84,58 @@ class RfidModbusTestGUI:
         self.create_widgets()
         self.refresh_ports()
 
+    def read_and_display_last_error(self, operation_name="operation"):
+        """Read lastError register (1026) and display/log the result"""
+        if not self.connected:
+            return
+
+        try:
+            # Read single register 1026 (returns list with one element)
+            result = self.modbus_read_registers(1026, 1)
+            last_error = result[0]
+
+            # Extract Low and High bytes
+            low_byte = last_error & 0xFF        # Low byte (bits 0-7)
+            high_byte = (last_error >> 8) & 0xFF # High byte (bits 8-15)
+            
+            # Update the GUI fields with hex values
+            low_hex = f"0x{low_byte:02X}"
+            high_hex = f"0x{high_byte:02X}"
+            self.last_error_low_var.set(low_hex)
+            self.last_error_high_var.set(high_hex)
+
+            # Change color based on error status
+            if last_error != 0:
+                self.last_error_low_label.config(foreground="red")
+                self.last_error_high_label.config(foreground="red")
+                error_msg = f"LastError after {operation_name}: Low={low_hex} High={high_hex} (0x{last_error:04X})"
+                self.log(error_msg)
+                self.block_display.insert(tk.END, f"  ⚠️  {error_msg}\n")
+                return last_error
+            else:
+                self.last_error_low_label.config(foreground="green")
+                self.last_error_high_label.config(foreground="green")
+                self.log(f"LastError after {operation_name}: Low={low_hex} High={high_hex} (Success)")
+                return 0
+        except Exception as err:
+            self.last_error_low_var.set("ERR")
+            self.last_error_high_var.set("ERR")
+            self.last_error_low_label.config(foreground="red")
+            self.last_error_high_label.config(foreground="red")
+            self.log(f"Could not read lastError register: {err}")
+            return None
+
     def is_data_block(self, block_num):
         """Check if block number is a standard data block (not UID block or trailer block)"""
         # Block 0 is UID/manufacturer block (read-only)
         if block_num == 0:
             return False
-        
+
         # Trailer blocks: 3, 7, 11, 15, 19, 23, 27, 31, 35, 39, 43, 47, 51, 55, 59, 63
         # Formula: block_num % 4 == 3 for blocks 0-63 (MIFARE 1K range)
         if block_num <= 63 and (block_num % 4 == 3):
             return False
-        
+
         # For MIFARE 4K (blocks 64-255), different structure:
         # Blocks 64-127: Groups of 16, trailer blocks at 79, 95, 111, 127
         # Blocks 128-255: Groups of 16, trailer blocks at 143, 159, ..., 255
@@ -104,12 +145,12 @@ class RfidModbusTestGUI:
                 sector_start = ((block_num - 64) // 16) * 16 + 64
                 if block_num == sector_start + 15:  # Last block of sector is trailer
                     return False
-            # MIFARE 4K sectors 32-39 (blocks 128-255): 16 blocks per sector  
+            # MIFARE 4K sectors 32-39 (blocks 128-255): 16 blocks per sector
             elif 128 <= block_num <= 255:
                 sector_start = ((block_num - 128) // 16) * 16 + 128
                 if block_num == sector_start + 15:  # Last block of sector is trailer
                     return False
-        
+
         return True
 
     def is_read_only_block(self, block_num):
@@ -141,7 +182,7 @@ class RfidModbusTestGUI:
             block_num = self.block_num_var.get()
             block_info = self.get_block_info(block_num)
             self.block_info_var.set(block_info)
-            
+
             # Update label color based on block type
             if block_num == 0:
                 self.block_info_label.config(foreground="red")  # Read-only
@@ -152,7 +193,7 @@ class RfidModbusTestGUI:
         except tk.TclError:
             # Handle case when variable is being initialized
             pass
-    
+
     def update_key_selection_display(self):
         """Update display when key selection changes"""
         key_text = "Key B" if self.use_key_b_var.get() else "Key A"
@@ -216,7 +257,7 @@ class RfidModbusTestGUI:
         # Function block buttons
         fb_btn_frame = ttk.Frame(fb_frame)
         fb_btn_frame.grid(row=1, column=0, columnspan=4, pady=10)
-        
+
         ttk.Button(fb_btn_frame, text="Read Current FB", command=self.read_and_display_function_block).pack(side=tk.LEFT, padx=5)
         ttk.Button(fb_btn_frame, text="Set Function Block", command=self.set_function_block).pack(side=tk.LEFT, padx=5)
 
@@ -239,17 +280,17 @@ class RfidModbusTestGUI:
 
         # Tab 5: Log
         self.create_log_tab(notebook)
-        
+
         # Raw Modbus Data Panel (collapsible)
         self.create_raw_data_panel(main_frame)
-        
+
         # Configure main_frame grid weights properly
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
-        
+
         # Force geometry update
         self.root.update_idletasks()
-        
+
         # Initialize block info display
         self.update_block_info()
 
@@ -258,7 +299,7 @@ class RfidModbusTestGUI:
         self.error_frame = ttk.Frame(parent, height=30)  # Fixed height
         self.error_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=2)
         self.error_frame.grid_propagate(False)  # Prevent frame from shrinking
-        
+
         # Error text display
         self.error_var = tk.StringVar()
         self.error_label = ttk.Label(self.error_frame, textvariable=self.error_var,
@@ -266,7 +307,7 @@ class RfidModbusTestGUI:
         self.error_label.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
         self.error_frame.columnconfigure(0, weight=1)
         self.error_frame.rowconfigure(0, weight=1)
-        
+
         # Initially empty but visible (reserving space)
         self.error_var.set("")
 
@@ -380,7 +421,7 @@ class RfidModbusTestGUI:
         ttk.Button(btn_frame, text="Clear", command=self.clear_tag_info).grid(
             row=0, column=2, padx=5
         )
-        
+
         # Auto-polling controls (moved from main window)
         poll_frame = ttk.LabelFrame(tab, text="Automatic Polling", padding="10")
         poll_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), padx=5, pady=10)
@@ -423,7 +464,7 @@ class RfidModbusTestGUI:
 
         # Create grid of basic data fields
         row = 0
-        
+
         # Firmware Revision (Register 10020)
         ttk.Label(device_frame, text="Firmware Revision (10020):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
         self.fw_revision_var = tk.StringVar(value="--")
@@ -534,7 +575,7 @@ class RfidModbusTestGUI:
         ttk.Button(key_frame, text="Read Keys", command=self.read_mifare_keys).grid(
             row=0, column=2, rowspan=2, padx=10, pady=5
         )
-        
+
         ttk.Button(key_frame, text="Write Keys", command=self.write_mifare_keys).grid(
             row=0, column=3, rowspan=2, padx=10, pady=5
         )
@@ -542,7 +583,7 @@ class RfidModbusTestGUI:
         # Block operations
         block_frame = ttk.LabelFrame(tab, text="Block Operations", padding="10")
         block_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
-        
+
         # Configure grid weights for stable layout
         block_frame.columnconfigure(3, weight=1)
 
@@ -551,20 +592,20 @@ class RfidModbusTestGUI:
         block_spin = ttk.Spinbox(block_frame, from_=0, to=255, textvariable=self.block_num_var, width=10,
                                 command=self.update_block_info)
         block_spin.grid(row=0, column=1, padx=5, pady=2)
-        
+
         # Add key selection checkbox (for high byte bit 0 of register 1016)
         self.use_key_b_var = tk.BooleanVar(value=False)
-        key_select_check = ttk.Checkbutton(block_frame, text="Use Key B", 
+        key_select_check = ttk.Checkbutton(block_frame, text="Use Key B",
                                           variable=self.use_key_b_var,
                                           command=self.update_key_selection_display)
         key_select_check.grid(row=0, column=2, padx=5, pady=2)
-        
+
         # Add block type info label with fixed width
         self.block_info_var = tk.StringVar()
-        self.block_info_label = ttk.Label(block_frame, textvariable=self.block_info_var, 
+        self.block_info_label = ttk.Label(block_frame, textvariable=self.block_info_var,
                                          font=("Arial", 9), foreground="blue", width=35)
         self.block_info_label.grid(row=0, column=3, sticky=tk.W, padx=10, pady=2)
-        
+
         # Bind variable change to update block info
         self.block_num_var.trace_add('write', self.update_block_info)
 
@@ -572,14 +613,14 @@ class RfidModbusTestGUI:
         self.block_data_var = tk.StringVar(value="00000000000000000000000000000000")
         block_data_entry = ttk.Entry(block_frame, textvariable=self.block_data_var, width=40, font=("Courier", 10))
         block_data_entry.grid(row=1, column=1, columnspan=3, padx=5, pady=2)
-        
+
         # Add event handler to auto-pad with FF when focus is lost
         block_data_entry.bind('<FocusOut>', self.auto_pad_block_data)
-        
+
         # Info label about auto-padding and block validation
-        ttk.Label(block_frame, text="(Auto-pads with FF if less than 32 hex characters)", 
+        ttk.Label(block_frame, text="(Auto-pads with FF if less than 32 hex characters)",
                  font=("Arial", 8), foreground="gray").grid(row=2, column=1, sticky=tk.W, padx=5)
-        ttk.Label(block_frame, text="⚠️ Write only allowed for Data Blocks (Read allows all blocks)", 
+        ttk.Label(block_frame, text="⚠️ Write only allowed for Data Blocks (Read allows all blocks)",
                  font=("Arial", 8), foreground="red").grid(row=3, column=1, columnspan=3, sticky=tk.W, padx=5)
 
         # Buttons
@@ -592,6 +633,29 @@ class RfidModbusTestGUI:
         ttk.Button(btn_frame, text="Write Block", command=self.write_mifare_block).grid(
             row=0, column=1, padx=5
         )
+
+        # LastError display
+        error_frame = ttk.Frame(block_frame)
+        error_frame.grid(row=5, column=0, columnspan=4, pady=(10, 0))
+
+        ttk.Label(error_frame, text="LastError (1026):").grid(row=0, column=0, sticky=tk.W, padx=5)
+        
+        # Low Byte display
+        ttk.Label(error_frame, text="Low:").grid(row=0, column=1, sticky=tk.W, padx=(10, 2))
+        self.last_error_low_var = tk.StringVar(value="0x00")
+        self.last_error_low_label = ttk.Label(error_frame, textvariable=self.last_error_low_var, 
+                                             font=("Courier", 10, "bold"), foreground="green", width=5)
+        self.last_error_low_label.grid(row=0, column=2, padx=2)
+        
+        # High Byte display  
+        ttk.Label(error_frame, text="High:").grid(row=0, column=3, sticky=tk.W, padx=(10, 2))
+        self.last_error_high_var = tk.StringVar(value="0x00")
+        self.last_error_high_label = ttk.Label(error_frame, textvariable=self.last_error_high_var, 
+                                              font=("Courier", 10, "bold"), foreground="green", width=5)
+        self.last_error_high_label.grid(row=0, column=4, padx=2)
+        
+        ttk.Label(error_frame, text="(Updated after each Block Read/Write)", 
+                 font=("Arial", 8), foreground="gray").grid(row=0, column=5, padx=(10, 5))
 
         # Data display
         data_frame = ttk.LabelFrame(tab, text="Block Data Display", padding="10")
@@ -672,71 +736,71 @@ class RfidModbusTestGUI:
 
         self.autoscroll_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(btn_frame, text="Auto-scroll", variable=self.autoscroll_var).grid(row=0, column=1, padx=5)
-    
+
     def create_raw_data_panel(self, parent):
         """Create collapsible panel for displaying raw Modbus RTU data"""
         # Container for the entire raw data section
         self.raw_data_container = ttk.Frame(parent)
         self.raw_data_container.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
         # Don't give weight initially since panel is collapsed
-        
+
         # Control bar (always visible)
         control_bar = ttk.Frame(self.raw_data_container)
         control_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
         self.raw_data_container.columnconfigure(0, weight=1)
-        
+
         # Enable/disable raw logging checkbox (also controls collapse)
         self.raw_logging_var = tk.BooleanVar(value=False)
-        self.raw_logging_check = ttk.Checkbutton(control_bar, text="▶ Enable Raw Modbus Data Logging", 
+        self.raw_logging_check = ttk.Checkbutton(control_bar, text="▶ Enable Raw Modbus Data Logging",
                                                 variable=self.raw_logging_var,
                                                 command=self.toggle_raw_panel)
         self.raw_logging_check.grid(row=0, column=0, padx=5)
-        
+
         # Statistics (always visible)
         self.raw_stats_var = tk.StringVar(value="TX: 0 bytes, RX: 0 bytes")
         ttk.Label(control_bar, textvariable=self.raw_stats_var).grid(row=0, column=1, padx=20, sticky=tk.E)
         control_bar.columnconfigure(1, weight=1)
-        
+
         # Collapsible frame for raw data display
         self.raw_panel_frame = ttk.Frame(self.raw_data_container)
         # Initially hidden
         self.raw_panel_expanded = False
-        
+
         # Create the content but don't grid it yet
         self.create_raw_panel_content()
-    
+
     def create_raw_panel_content(self):
         """Create the content of the raw data panel"""
         # Control frame within the panel
         control_frame = ttk.Frame(self.raw_panel_frame)
         control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
-        
-        ttk.Button(control_frame, text="Clear Raw Data", 
+
+        ttk.Button(control_frame, text="Clear Raw Data",
                   command=self.clear_raw_data).grid(row=0, column=0, padx=5)
-        
+
         # Display format options
         ttk.Label(control_frame, text="Display:").grid(row=0, column=1, padx=(20, 5))
         self.raw_format_var = tk.StringVar(value="hex")
-        format_combo = ttk.Combobox(control_frame, textvariable=self.raw_format_var, 
+        format_combo = ttk.Combobox(control_frame, textvariable=self.raw_format_var,
                                    width=15, state="readonly")
         format_combo['values'] = ('Hex Only', 'Hex + ASCII', 'Hex + Decode')
         format_combo.set('Hex + Decode')
         format_combo.grid(row=0, column=2, padx=5)
         format_combo.bind('<<ComboboxSelected>>', self.refresh_raw_display)
-        
+
         # Raw data display
         display_frame = ttk.LabelFrame(self.raw_panel_frame, text="Raw Modbus RTU Traffic", padding="5")
         display_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
         self.raw_panel_frame.rowconfigure(1, weight=1)
         self.raw_panel_frame.columnconfigure(0, weight=1)
-        
+
         # Create text widget with monospace font (smaller height for panel)
-        self.raw_display = scrolledtext.ScrolledText(display_frame, width=100, height=12, 
+        self.raw_display = scrolledtext.ScrolledText(display_frame, width=100, height=12,
                                                     font=("Courier", 9), wrap=tk.NONE)
         self.raw_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         display_frame.rowconfigure(0, weight=1)
         display_frame.columnconfigure(0, weight=1)
-        
+
         # Configure tags for coloring
         self.raw_display.tag_configure("tx", foreground="blue")
         self.raw_display.tag_configure("rx", foreground="green")
@@ -744,36 +808,36 @@ class RfidModbusTestGUI:
         self.raw_display.tag_configure("crc", foreground="purple")
         self.raw_display.tag_configure("timestamp", foreground="gray")
         self.raw_display.tag_configure("info", foreground="black")
-        
+
         # Horizontal scrollbar for long lines
-        h_scrollbar = ttk.Scrollbar(display_frame, orient="horizontal", 
+        h_scrollbar = ttk.Scrollbar(display_frame, orient="horizontal",
                                    command=self.raw_display.xview)
         h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.raw_display.config(xscrollcommand=h_scrollbar.set)
-    
+
     def toggle_raw_panel(self):
         """Toggle the raw data panel expansion and logging"""
         self.raw_logging_enabled = self.raw_logging_var.get()
-        
+
         if self.raw_logging_enabled:
             # Expand panel
             if not self.raw_panel_expanded:
                 # First update the container to allow expansion
-                self.raw_data_container.grid(row=4, column=0, columnspan=2, 
+                self.raw_data_container.grid(row=4, column=0, columnspan=2,
                                             sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
                 # Get parent and configure row weight
                 parent = self.raw_data_container.master
                 parent.rowconfigure(4, weight=1)
-                
+
                 # Now show the panel frame
                 self.raw_panel_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
                 self.raw_data_container.rowconfigure(1, weight=1)
                 self.raw_panel_expanded = True
                 self.raw_logging_check.config(text="▼ Disable Raw Modbus Data Logging")
-                
+
                 # Force update of the window
                 self.root.update_idletasks()
-            
+
             self.log("Raw Modbus data logging enabled")
             self.raw_display.insert(tk.END, f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] ", "timestamp")
             self.raw_display.insert(tk.END, "Raw data logging started\n", "info")
@@ -782,31 +846,31 @@ class RfidModbusTestGUI:
             if self.raw_panel_expanded:
                 self.raw_panel_frame.grid_forget()
                 self.raw_data_container.rowconfigure(1, weight=0)
-                
+
                 # Reset container to non-expanding
-                self.raw_data_container.grid(row=4, column=0, columnspan=2, 
+                self.raw_data_container.grid(row=4, column=0, columnspan=2,
                                             sticky=(tk.W, tk.E), pady=5)
                 # Remove row weight
                 parent = self.raw_data_container.master
                 parent.rowconfigure(4, weight=0)
-                
+
                 self.raw_panel_expanded = False
                 self.raw_logging_check.config(text="▶ Enable Raw Modbus Data Logging")
-                
+
                 # Force update of the window
                 self.root.update_idletasks()
-            
+
             # Clean up frame assembly
             if self.rx_frame_timer:
                 self.root.after_cancel(self.rx_frame_timer)
                 self.rx_frame_timer = None
             self.rx_frame_buffer.clear()
-            
+
             self.log("Raw Modbus data logging disabled")
             if hasattr(self, 'raw_display'):
                 self.raw_display.insert(tk.END, f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] ", "timestamp")
                 self.raw_display.insert(tk.END, "Raw data logging stopped\n", "info")
-        
+
         if hasattr(self, 'raw_display'):
             self.raw_display.see(tk.END)
 
@@ -841,7 +905,13 @@ class RfidModbusTestGUI:
                     self.connect_btn.config(text="Disconnect")
                     self.status_label.config(text="Connected", foreground="green")
                     self.log(f"Connected to {port} at {baudrate} baud")
-                    
+
+                    # Reset LastError display on connect
+                    self.last_error_low_var.set("0x00")
+                    self.last_error_high_var.set("0x00")
+                    self.last_error_low_label.config(foreground="green")
+                    self.last_error_high_label.config(foreground="green")
+
                     # Read current function block from device
                     self.read_current_function_block()
                 else:
@@ -874,7 +944,7 @@ class RfidModbusTestGUI:
     def clear_log(self):
         """Clear log display"""
         self.log_display.delete(1.0, tk.END)
-    
+
     def clear_raw_data(self):
         """Clear raw data display"""
         self.raw_display.delete(1.0, tk.END)
@@ -882,43 +952,43 @@ class RfidModbusTestGUI:
         self._tx_total = 0
         self._rx_total = 0
         self.update_raw_stats()
-        
+
     def refresh_raw_display(self, event=None):
         """Refresh raw data display with current format"""
         # Re-display all buffered data with new format
         self.raw_display.delete(1.0, tk.END)
         for entry in self.raw_data_buffer:
             self.display_raw_entry(entry)
-    
+
     def update_raw_stats(self, tx_bytes=None, rx_bytes=None):
         """Update raw data statistics"""
         if not hasattr(self, '_tx_total'):
             self._tx_total = 0
             self._rx_total = 0
-        
+
         if tx_bytes is not None:
             self._tx_total += tx_bytes
         if rx_bytes is not None:
             self._rx_total += rx_bytes
-            
+
         self.raw_stats_var.set(f"TX: {self._tx_total} bytes, RX: {self._rx_total} bytes")
-    
+
     def handle_raw_data(self, direction, data):
         """Callback for raw Modbus data from custom client"""
         if not self.raw_logging_enabled:
             return
-            
+
         # Convert data to bytes
         if isinstance(data, (bytes, bytearray)):
             data_bytes = data
         else:
             data_bytes = b''
-            
+
         if not data_bytes:
             return
-            
+
         timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
-        
+
         if direction == 'TX':
             # TX frames are usually complete, display immediately
             self.display_frame(timestamp, direction, data_bytes)
@@ -926,17 +996,17 @@ class RfidModbusTestGUI:
         else:
             # RX frames might come in fragments, need to assemble
             self.handle_rx_frame(timestamp, data_bytes)
-    
+
     def handle_rx_frame(self, timestamp, data_bytes):
         """Handle RX frame assembly"""
         # Cancel previous timer
         if self.rx_frame_timer:
             self.root.after_cancel(self.rx_frame_timer)
             self.rx_frame_timer = None
-        
+
         # Add new data to buffer
         self.rx_frame_buffer.extend(data_bytes)
-        
+
         # Check if frame looks complete
         if self.is_frame_complete(self.rx_frame_buffer):
             # Display complete frame
@@ -945,38 +1015,38 @@ class RfidModbusTestGUI:
             self.rx_frame_buffer.clear()
         else:
             # Set timer to flush incomplete frame after timeout
-            self.rx_frame_timer = self.root.after(self.rtu_frame_timeout, 
+            self.rx_frame_timer = self.root.after(self.rtu_frame_timeout,
                                                 lambda: self.flush_rx_frame(timestamp))
-    
+
     def is_frame_complete(self, frame_data):
         """Check if Modbus RTU frame appears complete"""
         if len(frame_data) < 4:  # Minimum: slave_id, function, data, 2 CRC bytes
             return False
-        
+
         try:
             slave_id = frame_data[0]
             function = frame_data[1]
-            
+
             # For read response (function 0x03), check expected length
             if function == 0x03 and len(frame_data) >= 3:
                 byte_count = frame_data[2]
                 expected_length = 3 + byte_count + 2  # slave + func + count + data + CRC
                 return len(frame_data) >= expected_length
-            
+
             # For other responses, assume complete if we have reasonable length and valid CRC
             if len(frame_data) >= 5:  # At least slave + func + 1 data + 2 CRC
                 return self.has_valid_crc(frame_data)
-                
+
         except:
             pass
-            
+
         return False
-    
+
     def has_valid_crc(self, frame_data):
         """Check if frame has valid CRC"""
         if len(frame_data) < 4:
             return False
-        
+
         try:
             # Calculate CRC for all but last 2 bytes
             calculated_crc = self.calculate_modbus_crc(frame_data[:-2])
@@ -985,7 +1055,7 @@ class RfidModbusTestGUI:
             return calculated_crc == received_crc
         except:
             return False
-    
+
     def flush_rx_frame(self, timestamp):
         """Flush incomplete RX frame after timeout"""
         if self.rx_frame_buffer:
@@ -993,11 +1063,11 @@ class RfidModbusTestGUI:
             self.update_raw_stats(rx_bytes=len(self.rx_frame_buffer))
             self.rx_frame_buffer.clear()
         self.rx_frame_timer = None
-    
+
     def display_frame(self, timestamp, direction, frame_data):
         """Display a complete frame"""
         hex_data = ' '.join([f'{b:02X}' for b in frame_data])
-        
+
         # Store in buffer
         entry = {
             'timestamp': timestamp,
@@ -1005,28 +1075,28 @@ class RfidModbusTestGUI:
             'hex_data': hex_data,
             'raw_bytes': frame_data
         }
-        
+
         self.raw_data_buffer.append(entry)
         if len(self.raw_data_buffer) > self.max_raw_buffer_size:
             self.raw_data_buffer.pop(0)
-        
+
         # Display the entry
         self.display_raw_entry(entry)
-    
+
     def display_raw_entry(self, entry):
         """Display a single raw data entry in the chosen format"""
         format_mode = self.raw_format_var.get()
-        
+
         # Timestamp
         self.raw_display.insert(tk.END, f"[{entry['timestamp']}] ", "timestamp")
-        
+
         # Direction
         tag = "tx" if entry['direction'] == 'TX' else "rx"
         self.raw_display.insert(tk.END, f"{entry['direction']}: ", tag)
-        
+
         # Hex data
         self.raw_display.insert(tk.END, entry['hex_data'], tag)
-        
+
         # Additional formatting based on mode
         if format_mode == 'Hex + ASCII':
             # Add ASCII representation
@@ -1038,25 +1108,25 @@ class RfidModbusTestGUI:
                 except:
                     ascii_str += '.'
             self.raw_display.insert(tk.END, f"  |{ascii_str}|", "info")
-            
+
         elif format_mode == 'Hex + Decode':
             # Try to decode Modbus frame
             decoded = self.decode_modbus_frame(entry['raw_bytes'], entry['direction'])
             if decoded:
                 self.raw_display.insert(tk.END, f"  | {decoded}", "info")
-        
+
         self.raw_display.insert(tk.END, "\n")
         self.raw_display.see(tk.END)
-    
+
     def decode_modbus_frame(self, data, direction):
         """Decode Modbus RTU frame"""
         if not data or len(data) < 4:
             return ""
-        
+
         try:
             slave_id = data[0]
             function = data[1]
-            
+
             # Common function codes
             func_names = {
                 0x03: "Read Holding Registers",
@@ -1064,18 +1134,18 @@ class RfidModbusTestGUI:
                 0x10: "Write Multiple Registers",
                 0x04: "Read Input Registers"
             }
-            
+
             func_name = func_names.get(function, f"Function 0x{function:02X}")
-            
+
             if len(data) >= 4:
                 # Calculate and verify CRC
                 crc_received = (data[-1] << 8) | data[-2]
                 crc_calculated = self.calculate_modbus_crc(data[:-2])
                 crc_ok = crc_received == crc_calculated
                 crc_status = "OK" if crc_ok else "ERROR"
-                
+
                 result = f"Slave:{slave_id} {func_name}"
-                
+
                 # Decode based on function code and direction
                 if function == 0x03 and direction == 'TX' and len(data) >= 8:
                     # Read request
@@ -1092,15 +1162,15 @@ class RfidModbusTestGUI:
                     count = (data[4] << 8) | data[5]
                     byte_count = data[6]
                     result += f" Addr:{addr} Count:{count} Bytes:{byte_count}"
-                
+
                 result += f" CRC:{crc_status}"
                 return result
-            
+
             return f"Slave:{slave_id} {func_name}"
-            
+
         except Exception as e:
             return f"Decode error: {e}"
-    
+
     def calculate_modbus_crc(self, data):
         """Calculate Modbus RTU CRC16"""
         crc = 0xFFFF
@@ -1151,12 +1221,12 @@ class RfidModbusTestGUI:
             # Read register 1009 to get current function block
             regs = self.modbus_read_registers(1009, 1)
             current_fb = regs[0] & 0xFF  # Only low byte is used
-            
+
             # Update GUI radio button
             if current_fb in [0, 1, 2, 3]:  # Valid FB values
                 self.fb_var.set(current_fb)
                 self.log(f"Current function block: FB{current_fb}")
-                
+
                 # Show info message
                 fb_names = {
                     0: "RFID Off (Standby)",
@@ -1167,28 +1237,28 @@ class RfidModbusTestGUI:
                 self.show_success(f"Device is in FB{current_fb}: {fb_names.get(current_fb, 'Unknown')}")
             else:
                 self.log(f"Unknown function block value: {current_fb}")
-                
+
         except Exception as e:
             # Don't use handle_error here to avoid stopping the connection process
             self.log(f"Could not read function block: {e}")
             # Set default to FB1
             self.fb_var.set(1)
-    
+
     def read_and_display_function_block(self):
         """Read current function block when user clicks button"""
         self.clear_error()
         if not self.check_connection():
             return
-            
+
         try:
             # Read register 1009 to get current function block
             regs = self.modbus_read_registers(1009, 1)
             current_fb = regs[0] & 0xFF  # Only low byte is used
-            
+
             # Update GUI radio button
             if current_fb in [0, 1, 2, 3]:  # Valid FB values
                 self.fb_var.set(current_fb)
-                
+
                 # Show info message
                 fb_names = {
                     0: "RFID Off (Standby)",
@@ -1201,10 +1271,10 @@ class RfidModbusTestGUI:
             else:
                 self.log(f"Unknown function block value: {current_fb}")
                 self.show_error(f"Unknown function block value: {current_fb}")
-                
+
         except Exception as e:
             self.handle_error(e, "Read function block")
-    
+
     def set_function_block(self):
         """Set RFID function block"""
         self.clear_error()
@@ -1352,22 +1422,22 @@ class RfidModbusTestGUI:
             # Clear the display field to show reading is in progress
             self.key_a_var.set("------------")
             self.root.update_idletasks()  # Force GUI update to show the dashes
-            
+
             # Read Key A (registers 1010-1012, 3 registers = 6 bytes)
             key_a_regs = self.modbus_read_registers(1010, 3)
-            
+
             # Convert Key A registers to hex string
             key_a_bytes = []
             for reg in key_a_regs:
                 key_a_bytes.append((reg >> 8) & 0xFF)
                 key_a_bytes.append(reg & 0xFF)
             key_a_hex = ''.join([f'{b:02X}' for b in key_a_bytes])
-            
+
             # Update the GUI field
             self.key_a_var.set(key_a_hex)
             self.log(f"Read Key A: {key_a_hex}")
             return True
-            
+
         except Exception as e:
             self.key_a_var.set("ERROR")
             self.log(f"Failed to read Key A: {e}")
@@ -1379,22 +1449,22 @@ class RfidModbusTestGUI:
             # Clear the display field to show reading is in progress
             self.key_b_var.set("------------")
             self.root.update_idletasks()  # Force GUI update to show the dashes
-            
+
             # Read Key B (registers 1013-1015, 3 registers = 6 bytes)
             key_b_regs = self.modbus_read_registers(1013, 3)
-            
+
             # Convert Key B registers to hex string
             key_b_bytes = []
             for reg in key_b_regs:
                 key_b_bytes.append((reg >> 8) & 0xFF)
                 key_b_bytes.append(reg & 0xFF)
             key_b_hex = ''.join([f'{b:02X}' for b in key_b_bytes])
-            
+
             # Update the GUI field
             self.key_b_var.set(key_b_hex)
             self.log(f"Read Key B: {key_b_hex}")
             return True
-            
+
         except Exception as e:
             self.key_b_var.set("ERROR")
             self.log(f"Failed to read Key B: {e}")
@@ -1409,7 +1479,7 @@ class RfidModbusTestGUI:
         # Read both keys separately
         success_a = self.read_mifare_key_a()
         success_b = self.read_mifare_key_b()
-        
+
         # Show error if both failed
         if not success_a and not success_b:
             self.handle_error("Failed to read both keys", "Read MIFARE keys")
@@ -1436,10 +1506,10 @@ class RfidModbusTestGUI:
 
             # Write Key A (registers 1010-1012)
             self.modbus_write_registers(1010, key_a_regs)
-            
+
             self.log(f"Written Key A: {key_a_hex}")
             return True
-            
+
         except ValueError as e:
             self.log(f"Invalid Key A format: {e}")
             return False
@@ -1465,10 +1535,10 @@ class RfidModbusTestGUI:
 
             # Write Key B (registers 1013-1015)
             self.modbus_write_registers(1013, key_b_regs)
-            
+
             self.log(f"Written Key B: {key_b_hex}")
             return True
-            
+
         except ValueError as e:
             self.log(f"Invalid Key B format: {e}")
             return False
@@ -1485,7 +1555,7 @@ class RfidModbusTestGUI:
         # Write both keys separately
         success_a = self.write_mifare_key_a()
         success_b = self.write_mifare_key_b()
-        
+
         # Show appropriate message
         if success_a and success_b:
             self.log("MIFARE keys written successfully")
@@ -1496,7 +1566,7 @@ class RfidModbusTestGUI:
             self.show_error("Failed to write Key A (Key B written)")
         elif not success_b:
             self.show_error("Failed to write Key B (Key A written)")
-    
+
     def read_basic_data(self):
         """Read all basic data from device"""
         self.clear_error()
@@ -1506,54 +1576,54 @@ class RfidModbusTestGUI:
         try:
             # Read all basic data registers from base module (address 10000+)
             basic_data = {}
-            
+
             # Read registers 10020-10021 (Firmware/Hardware Revision)
             regs = self.modbus_read_registers(10020, 2)
             basic_data[20] = regs[0]  # Firmware Revision
             basic_data[21] = regs[1]  # Hardware Revision
-            
+
             # Read registers 10022-10077 (all other basic data)
             regs = self.modbus_read_registers(10022, 56)  # 10022 to 10077 = 56 registers
             for i, reg_value in enumerate(regs):
                 basic_data[22 + i] = reg_value
-            
+
             # Convert and display the data
             self.display_basic_data(basic_data)
-            
+
             self.log("Basic data read successfully")
             self.show_success("Basic data updated")
 
         except Exception as e:
             self.handle_error(e, "Read basic data")
-    
+
     def display_basic_data(self, data):
         """Display basic data in the GUI fields"""
-        
+
         # Firmware Revision (Register 20) - 2 bytes ASCII
         if 20 in data:
             fw_rev = self.register_to_ascii([data[20]])
             self.fw_revision_var.set(fw_rev)
-        
+
         # Hardware Revision (Register 21) - 2 bytes ASCII
         if 21 in data:
             hw_rev = self.register_to_ascii([data[21]])
             self.hw_revision_var.set(hw_rev)
-        
+
         # Module Serial Number (Registers 22-27) - 12 bytes ASCII
         if all(reg in data for reg in range(22, 28)):
             module_serial = self.register_to_ascii([data[reg] for reg in range(22, 28)])
             self.module_serial_var.set(module_serial)
-        
+
         # Product Name (Registers 28-35) - 16 bytes ASCII
         if all(reg in data for reg in range(28, 36)):
             product_name = self.register_to_ascii([data[reg] for reg in range(28, 36)])
             self.product_name_var.set(product_name)
-        
+
         # Product Order Type (Registers 36-43) - 16 bytes ASCII
         if all(reg in data for reg in range(36, 44)):
             product_order = self.register_to_ascii([data[reg] for reg in range(36, 44)])
             self.product_order_var.set(product_order)
-        
+
         # IO Link Device ID (Registers 44-45) - 3 bytes (special handling)
         if all(reg in data for reg in range(44, 46)):
             # Extract 3 bytes from 2 registers
@@ -1563,32 +1633,32 @@ class RfidModbusTestGUI:
             byte3 = (reg2 >> 8) & 0xFF
             iolink_id = f"0x{byte1:02X}{byte2:02X}{byte3:02X}"
             self.iolink_id_var.set(iolink_id)
-        
+
         # System Firmware Version (Registers 46-53) - 16 bytes ASCII
         if all(reg in data for reg in range(46, 54)):
             sys_fw_ver = self.register_to_ascii([data[reg] for reg in range(46, 54)])
             self.sys_fw_version_var.set(sys_fw_ver)
-        
+
         # System Serial Number (Registers 54-59) - 12 bytes ASCII
         if all(reg in data for reg in range(54, 60)):
             sys_serial = self.register_to_ascii([data[reg] for reg in range(54, 60)])
             self.sys_serial_var.set(sys_serial)
-        
+
         # Personal Number (Registers 60-61) - 4 bytes ASCII
         if all(reg in data for reg in range(60, 62)):
             personal_num = self.register_to_ascii([data[reg] for reg in range(60, 62)])
             self.personal_num_var.set(personal_num)
-        
+
         # System Hardware Version (Registers 62-69) - 16 bytes ASCII
         if all(reg in data for reg in range(62, 70)):
             sys_hw_ver = self.register_to_ascii([data[reg] for reg in range(62, 70)])
             self.sys_hw_version_var.set(sys_hw_ver)
-        
+
         # Product ID (Registers 70-77) - 16 bytes ASCII
         if all(reg in data for reg in range(70, 78)):
             product_id = self.register_to_ascii([data[reg] for reg in range(70, 78)])
             self.product_id_var.set(product_id)
-    
+
     def register_to_ascii(self, registers):
         """Convert list of 16-bit registers to ASCII string"""
         ascii_chars = []
@@ -1596,20 +1666,20 @@ class RfidModbusTestGUI:
             # Each register contains 2 bytes (high byte, low byte)
             high_byte = (reg >> 8) & 0xFF
             low_byte = reg & 0xFF
-            
+
             # Convert to ASCII, replace non-printable chars with spaces
             if 32 <= high_byte <= 126:
                 ascii_chars.append(chr(high_byte))
             else:
                 ascii_chars.append(' ')
-                
+
             if 32 <= low_byte <= 126:
                 ascii_chars.append(chr(low_byte))
             else:
                 ascii_chars.append(' ')
-        
+
         return ''.join(ascii_chars).strip()
-    
+
     def clear_basic_data(self):
         """Clear all basic data fields"""
         self.clear_error()
@@ -1633,12 +1703,12 @@ class RfidModbusTestGUI:
 
         try:
             block_num = self.block_num_var.get()
-            
+
             # Combine block number with key selection
             # Low byte: block number, High byte bit 0: key selection (0=Key A, 1=Key B)
             use_key_b = self.use_key_b_var.get()
             register_value = block_num | (0x0100 if use_key_b else 0x0000)
-            
+
             # Log the key being used
             key_text = "Key B" if use_key_b else "Key A"
             self.log(f"Reading block {block_num} using {key_text}")
@@ -1664,7 +1734,7 @@ class RfidModbusTestGUI:
             # Display in block display
             display_str = f"Block {block_num:02d}: {hex_str}\n"
             display_str += f"  ASCII: {''.join([chr(b) if 32 <= b < 127 else '.' for b in block_bytes])}\n"
-            self.block_display.insert(tk.END, display_str + "\n")
+            self.block_display.insert(tk.END, display_str)
             self.block_display.see(tk.END)
 
             self.log(f"Read block {block_num}: {hex_str}")
@@ -1672,16 +1742,22 @@ class RfidModbusTestGUI:
         except Exception as e:
             self.handle_error(e, "Read MIFARE block")
 
+        finally:
+            # ALWAYS read lastError after any block operation attempt - regardless of success/failure
+            self.read_and_display_last_error("block read")
+            self.block_display.insert(tk.END, "\n")
+            self.block_display.see(tk.END)
+
     def auto_pad_block_data(self, event=None):
         """Auto-pad block data with FF to make it 32 hex characters"""
         try:
             # Get current value and remove spaces
             block_hex = self.block_data_var.get().replace(" ", "").upper()
-            
+
             # Validate hex characters
             if block_hex and not all(c in '0123456789ABCDEF' for c in block_hex):
                 return  # Don't modify if invalid hex
-            
+
             # If empty, set to all FF
             if not block_hex:
                 block_hex = "FF" * 16  # 32 hex characters
@@ -1693,10 +1769,10 @@ class RfidModbusTestGUI:
                 # Simply pad with F until we have 32 characters
                 padding_needed = 32 - len(block_hex)
                 block_hex += "F" * padding_needed
-            
+
             # Update the field with padded value
             self.block_data_var.set(block_hex)
-            
+
         except Exception:
             pass  # Silently ignore errors in auto-padding
 
@@ -1708,7 +1784,7 @@ class RfidModbusTestGUI:
 
         try:
             block_num = self.block_num_var.get()
-            
+
             # Validate that only standard data blocks can be written
             if not self.is_data_block(block_num):
                 if block_num == 0:
@@ -1718,19 +1794,19 @@ class RfidModbusTestGUI:
                     raise ValueError(f"Block {block_num} is a Trailer Block containing keys and access bits!\n" +
                                    "Writing to trailer blocks can lock the sector permanently.\n" +
                                    "Use the Key A/B fields instead to modify keys safely.")
-            
+
             # Log the key being used
             use_key_b = self.use_key_b_var.get()
             key_text = "Key B" if use_key_b else "Key A"
             self.log(f"Writing to {self.get_block_info(block_num)} using {key_text}")
-            
+
             # Parse and auto-pad block data
             block_hex = self.block_data_var.get().replace(" ", "").upper()
-            
+
             # Validate hex characters
             if not all(c in '0123456789ABCDEF' for c in block_hex):
                 raise ValueError("Block data must contain only hexadecimal characters (0-9, A-F)")
-            
+
             # Auto-pad with F if less than 32 hex characters
             if len(block_hex) < 32:
                 padding_needed = 32 - len(block_hex)
@@ -1743,11 +1819,11 @@ class RfidModbusTestGUI:
                 block_hex = block_hex[:32]
                 self.log("Truncated block data to 32 hex characters")
                 self.block_data_var.set(block_hex)
-            
+
             # Now block_hex should be exactly 32 hex characters
             if len(block_hex) != 32:
                 raise ValueError("Internal error: Block data is not 32 hex characters after padding")
-            
+
             block_bytes = bytes.fromhex(block_hex)
 
             # Convert to registers (8 registers = 16 bytes)
@@ -1769,6 +1845,13 @@ class RfidModbusTestGUI:
 
         except Exception as e:
             self.handle_error(e, "Write MIFARE block")
+
+        finally:
+            # ALWAYS read lastError after any block operation attempt - regardless of success/failure
+            last_error = self.read_and_display_last_error("block write")
+            # Override success message if there was an error
+            if last_error and last_error != 0:
+                self.show_error(f"Block {block_num} written but with error: 0x{last_error:04X}")
 
     def manual_read(self):
         """Manual read of Modbus registers"""
