@@ -13,20 +13,55 @@ from datetime import datetime
 from pymodbus.client.sync import ModbusSerialClient
 from pymodbus.constants import Endian
 from pymodbus.payload import BinaryPayloadDecoder, BinaryPayloadBuilder
+from pymodbus.transaction import ModbusRtuFramer
+from pymodbus.factory import ClientDecoder
 import serial.tools.list_ports
+import struct
+
+
+class LoggingModbusClient(ModbusSerialClient):
+    """Custom Modbus client that logs raw data traffic"""
+    
+    def __init__(self, *args, **kwargs):
+        self.raw_data_callback = kwargs.pop('raw_data_callback', None)
+        super().__init__(*args, **kwargs)
+    
+    def _send(self, request):
+        """Override to capture TX data"""
+        raw_data = request
+        if self.raw_data_callback and raw_data:
+            self.raw_data_callback('TX', raw_data)
+        return super()._send(request)
+    
+    def _recv(self, size):
+        """Override to capture RX data"""
+        raw_data = super()._recv(size)
+        if self.raw_data_callback and raw_data:
+            self.raw_data_callback('RX', raw_data)
+        return raw_data
 
 
 class RfidModbusTestGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("RFID Modbus Test GUI")
-        self.root.geometry("1200x850")
+        self.root.geometry("1200x900")
 
         # Modbus client
         self.client = None
         self.connected = False
         self.polling_active = False
         self.polling_thread = None
+        
+        # Raw data logging
+        self.raw_logging_enabled = False
+        self.raw_data_buffer = []
+        self.max_raw_buffer_size = 1000  # Max lines to keep in buffer
+        
+        # RTU frame assembly for raw data
+        self.rx_frame_buffer = bytearray()
+        self.rx_frame_timer = None
+        self.rtu_frame_timeout = 50  # ms timeout for RTU frame completion
 
         # Error display timer
         self.error_clear_timer = None
@@ -117,6 +152,11 @@ class RfidModbusTestGUI:
         except tk.TclError:
             # Handle case when variable is being initialized
             pass
+    
+    def update_key_selection_display(self):
+        """Update display when key selection changes"""
+        key_text = "Key B" if self.use_key_b_var.get() else "Key A"
+        self.log(f"Selected {key_text} for authentication")
 
     def create_widgets(self):
         # Main container
@@ -183,34 +223,32 @@ class RfidModbusTestGUI:
         # Create notebook for different sections
         notebook = ttk.Notebook(main_frame)
         notebook.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
-        main_frame.rowconfigure(3, weight=1)
+        main_frame.rowconfigure(3, weight=3)  # Give more weight to notebook
 
         # Tab 1: Tag Information
         self.create_tag_info_tab(notebook)
 
-        # Tab 2: MIFARE Operations
+        # Tab 2: Basic Data
+        self.create_basic_data_tab(notebook)
+
+        # Tab 3: MIFARE Operations
         self.create_mifare_tab(notebook)
 
-        # Tab 3: Manual Register Access
+        # Tab 4: Manual Register Access
         self.create_manual_tab(notebook)
 
-        # Tab 4: Log
+        # Tab 5: Log
         self.create_log_tab(notebook)
-
-        # Polling control
-        poll_frame = ttk.Frame(main_frame)
-        poll_frame.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
-
-        self.poll_var = tk.BooleanVar(value=False)
-        self.poll_check = ttk.Checkbutton(poll_frame, text="Auto-poll tag information",
-                                          variable=self.poll_var, command=self.toggle_polling)
-        self.poll_check.grid(row=0, column=0, padx=5)
-
-        ttk.Label(poll_frame, text="Poll interval (ms):").grid(row=0, column=1, padx=5)
-        self.poll_interval_var = tk.IntVar(value=500)
-        poll_spin = ttk.Spinbox(poll_frame, from_=100, to=5000, increment=100,
-                                textvariable=self.poll_interval_var, width=10)
-        poll_spin.grid(row=0, column=2, padx=5)
+        
+        # Raw Modbus Data Panel (collapsible)
+        self.create_raw_data_panel(main_frame)
+        
+        # Configure main_frame grid weights properly
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.columnconfigure(1, weight=1)
+        
+        # Force geometry update
+        self.root.update_idletasks()
         
         # Initialize block info display
         self.update_block_info()
@@ -342,6 +380,138 @@ class RfidModbusTestGUI:
         ttk.Button(btn_frame, text="Clear", command=self.clear_tag_info).grid(
             row=0, column=2, padx=5
         )
+        
+        # Auto-polling controls (moved from main window)
+        poll_frame = ttk.LabelFrame(tab, text="Automatic Polling", padding="10")
+        poll_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), padx=5, pady=10)
+
+        self.poll_var = tk.BooleanVar(value=False)
+        self.poll_check = ttk.Checkbutton(poll_frame, text="Auto-poll tag information",
+                                          variable=self.poll_var, command=self.toggle_polling)
+        self.poll_check.grid(row=0, column=0, padx=5)
+
+        ttk.Label(poll_frame, text="Poll interval (ms):").grid(row=0, column=1, padx=5)
+        self.poll_interval_var = tk.IntVar(value=500)
+        poll_spin = ttk.Spinbox(poll_frame, from_=100, to=5000, increment=100,
+                                textvariable=self.poll_interval_var, width=10)
+        poll_spin.grid(row=0, column=2, padx=5)
+
+    def create_basic_data_tab(self, notebook):
+        """Create tab for Basic Data (read-only system information)"""
+        tab = ttk.Frame(notebook)
+        notebook.add(tab, text="Basic Data")
+
+        # Main scrollable frame
+        main_canvas = tk.Canvas(tab)
+        scrollbar = ttk.Scrollbar(tab, orient="vertical", command=main_canvas.yview)
+        scrollable_frame = ttk.Frame(main_canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: main_canvas.configure(scrollregion=main_canvas.bbox("all"))
+        )
+
+        main_canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        main_canvas.configure(yscrollcommand=scrollbar.set)
+
+        main_canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # Basic device information
+        device_frame = ttk.LabelFrame(scrollable_frame, text="Device Information", padding="10")
+        device_frame.pack(fill="both", expand=True, padx=5, pady=5)
+
+        # Create grid of basic data fields
+        row = 0
+        
+        # Firmware Revision (Register 10020)
+        ttk.Label(device_frame, text="Firmware Revision (10020):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.fw_revision_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.fw_revision_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Hardware Revision (Register 10021)
+        ttk.Label(device_frame, text="Hardware Revision (10021):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.hw_revision_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.hw_revision_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Module Serial Number (Register 10022-10027)
+        ttk.Label(device_frame, text="Module Serial Number (10022-10027):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.module_serial_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.module_serial_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Product Name (Register 10028-10035)
+        ttk.Label(device_frame, text="Product Name (10028-10035):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.product_name_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.product_name_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Product Order Type (Register 10036-10043)
+        ttk.Label(device_frame, text="Product Order Type (10036-10043):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.product_order_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.product_order_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # IO Link Device ID (Register 10044-10045)
+        ttk.Label(device_frame, text="IO Link Device ID (10044-10045):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.iolink_id_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.iolink_id_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # System Firmware Version (Register 10046-10053)
+        ttk.Label(device_frame, text="System Firmware Version (10046-10053):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.sys_fw_version_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.sys_fw_version_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # System Serial Number (Register 10054-10059)
+        ttk.Label(device_frame, text="System Serial Number (10054-10059):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.sys_serial_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.sys_serial_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Personal Number (Register 10060-10061)
+        ttk.Label(device_frame, text="Personal Number (10060-10061):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.personal_num_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.personal_num_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # System Hardware Version (Register 10062-10069)
+        ttk.Label(device_frame, text="System Hardware Version (10062-10069):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.sys_hw_version_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.sys_hw_version_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Product ID (Register 10070-10077)
+        ttk.Label(device_frame, text="Product ID (10070-10077):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        self.product_id_var = tk.StringVar(value="--")
+        ttk.Label(device_frame, textvariable=self.product_id_var, font=("Courier", 10), width=25).grid(
+            row=row, column=1, sticky=tk.W, padx=5, pady=2)
+        row += 1
+
+        # Buttons
+        btn_frame = ttk.Frame(scrollable_frame)
+        btn_frame.pack(fill="x", padx=5, pady=10)
+
+        ttk.Button(btn_frame, text="Read All Basic Data", command=self.read_basic_data).pack(side=tk.LEFT, padx=5)
+        ttk.Button(btn_frame, text="Clear", command=self.clear_basic_data).pack(side=tk.LEFT, padx=5)
+
+        # Enable mousewheel scrolling
+        def on_mousewheel(event):
+            main_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+        main_canvas.bind("<MouseWheel>", on_mousewheel)
 
     def create_mifare_tab(self, notebook):
         tab = ttk.Frame(notebook)
@@ -374,7 +544,7 @@ class RfidModbusTestGUI:
         block_frame.grid(row=1, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
         
         # Configure grid weights for stable layout
-        block_frame.columnconfigure(2, weight=1)
+        block_frame.columnconfigure(3, weight=1)
 
         ttk.Label(block_frame, text="Block Number (1016):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
         self.block_num_var = tk.IntVar(value=4)
@@ -382,11 +552,18 @@ class RfidModbusTestGUI:
                                 command=self.update_block_info)
         block_spin.grid(row=0, column=1, padx=5, pady=2)
         
+        # Add key selection checkbox (for high byte bit 0 of register 1016)
+        self.use_key_b_var = tk.BooleanVar(value=False)
+        key_select_check = ttk.Checkbutton(block_frame, text="Use Key B", 
+                                          variable=self.use_key_b_var,
+                                          command=self.update_key_selection_display)
+        key_select_check.grid(row=0, column=2, padx=5, pady=2)
+        
         # Add block type info label with fixed width
         self.block_info_var = tk.StringVar()
         self.block_info_label = ttk.Label(block_frame, textvariable=self.block_info_var, 
                                          font=("Arial", 9), foreground="blue", width=35)
-        self.block_info_label.grid(row=0, column=2, sticky=tk.W, padx=10, pady=2)
+        self.block_info_label.grid(row=0, column=3, sticky=tk.W, padx=10, pady=2)
         
         # Bind variable change to update block info
         self.block_num_var.trace_add('write', self.update_block_info)
@@ -394,7 +571,7 @@ class RfidModbusTestGUI:
         ttk.Label(block_frame, text="Block Data (1018-1025):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
         self.block_data_var = tk.StringVar(value="00000000000000000000000000000000")
         block_data_entry = ttk.Entry(block_frame, textvariable=self.block_data_var, width=40, font=("Courier", 10))
-        block_data_entry.grid(row=1, column=1, columnspan=2, padx=5, pady=2)
+        block_data_entry.grid(row=1, column=1, columnspan=3, padx=5, pady=2)
         
         # Add event handler to auto-pad with FF when focus is lost
         block_data_entry.bind('<FocusOut>', self.auto_pad_block_data)
@@ -403,11 +580,11 @@ class RfidModbusTestGUI:
         ttk.Label(block_frame, text="(Auto-pads with FF if less than 32 hex characters)", 
                  font=("Arial", 8), foreground="gray").grid(row=2, column=1, sticky=tk.W, padx=5)
         ttk.Label(block_frame, text="⚠️ Write only allowed for Data Blocks (Read allows all blocks)", 
-                 font=("Arial", 8), foreground="red").grid(row=3, column=1, columnspan=2, sticky=tk.W, padx=5)
+                 font=("Arial", 8), foreground="red").grid(row=3, column=1, columnspan=3, sticky=tk.W, padx=5)
 
         # Buttons
         btn_frame = ttk.Frame(block_frame)
-        btn_frame.grid(row=4, column=0, columnspan=3, pady=10)
+        btn_frame.grid(row=4, column=0, columnspan=4, pady=10)
 
         ttk.Button(btn_frame, text="Read Block", command=self.read_mifare_block).grid(
             row=0, column=0, padx=5
@@ -495,6 +672,143 @@ class RfidModbusTestGUI:
 
         self.autoscroll_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(btn_frame, text="Auto-scroll", variable=self.autoscroll_var).grid(row=0, column=1, padx=5)
+    
+    def create_raw_data_panel(self, parent):
+        """Create collapsible panel for displaying raw Modbus RTU data"""
+        # Container for the entire raw data section
+        self.raw_data_container = ttk.Frame(parent)
+        self.raw_data_container.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=5)
+        # Don't give weight initially since panel is collapsed
+        
+        # Control bar (always visible)
+        control_bar = ttk.Frame(self.raw_data_container)
+        control_bar.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=2)
+        self.raw_data_container.columnconfigure(0, weight=1)
+        
+        # Enable/disable raw logging checkbox (also controls collapse)
+        self.raw_logging_var = tk.BooleanVar(value=False)
+        self.raw_logging_check = ttk.Checkbutton(control_bar, text="▶ Enable Raw Modbus Data Logging", 
+                                                variable=self.raw_logging_var,
+                                                command=self.toggle_raw_panel)
+        self.raw_logging_check.grid(row=0, column=0, padx=5)
+        
+        # Statistics (always visible)
+        self.raw_stats_var = tk.StringVar(value="TX: 0 bytes, RX: 0 bytes")
+        ttk.Label(control_bar, textvariable=self.raw_stats_var).grid(row=0, column=1, padx=20, sticky=tk.E)
+        control_bar.columnconfigure(1, weight=1)
+        
+        # Collapsible frame for raw data display
+        self.raw_panel_frame = ttk.Frame(self.raw_data_container)
+        # Initially hidden
+        self.raw_panel_expanded = False
+        
+        # Create the content but don't grid it yet
+        self.create_raw_panel_content()
+    
+    def create_raw_panel_content(self):
+        """Create the content of the raw data panel"""
+        # Control frame within the panel
+        control_frame = ttk.Frame(self.raw_panel_frame)
+        control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
+        
+        ttk.Button(control_frame, text="Clear Raw Data", 
+                  command=self.clear_raw_data).grid(row=0, column=0, padx=5)
+        
+        # Display format options
+        ttk.Label(control_frame, text="Display:").grid(row=0, column=1, padx=(20, 5))
+        self.raw_format_var = tk.StringVar(value="hex")
+        format_combo = ttk.Combobox(control_frame, textvariable=self.raw_format_var, 
+                                   width=15, state="readonly")
+        format_combo['values'] = ('Hex Only', 'Hex + ASCII', 'Hex + Decode')
+        format_combo.set('Hex + Decode')
+        format_combo.grid(row=0, column=2, padx=5)
+        format_combo.bind('<<ComboboxSelected>>', self.refresh_raw_display)
+        
+        # Raw data display
+        display_frame = ttk.LabelFrame(self.raw_panel_frame, text="Raw Modbus RTU Traffic", padding="5")
+        display_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=5, pady=5)
+        self.raw_panel_frame.rowconfigure(1, weight=1)
+        self.raw_panel_frame.columnconfigure(0, weight=1)
+        
+        # Create text widget with monospace font (smaller height for panel)
+        self.raw_display = scrolledtext.ScrolledText(display_frame, width=100, height=12, 
+                                                    font=("Courier", 9), wrap=tk.NONE)
+        self.raw_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+        display_frame.rowconfigure(0, weight=1)
+        display_frame.columnconfigure(0, weight=1)
+        
+        # Configure tags for coloring
+        self.raw_display.tag_configure("tx", foreground="blue")
+        self.raw_display.tag_configure("rx", foreground="green")
+        self.raw_display.tag_configure("error", foreground="red")
+        self.raw_display.tag_configure("crc", foreground="purple")
+        self.raw_display.tag_configure("timestamp", foreground="gray")
+        self.raw_display.tag_configure("info", foreground="black")
+        
+        # Horizontal scrollbar for long lines
+        h_scrollbar = ttk.Scrollbar(display_frame, orient="horizontal", 
+                                   command=self.raw_display.xview)
+        h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
+        self.raw_display.config(xscrollcommand=h_scrollbar.set)
+    
+    def toggle_raw_panel(self):
+        """Toggle the raw data panel expansion and logging"""
+        self.raw_logging_enabled = self.raw_logging_var.get()
+        
+        if self.raw_logging_enabled:
+            # Expand panel
+            if not self.raw_panel_expanded:
+                # First update the container to allow expansion
+                self.raw_data_container.grid(row=4, column=0, columnspan=2, 
+                                            sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+                # Get parent and configure row weight
+                parent = self.raw_data_container.master
+                parent.rowconfigure(4, weight=1)
+                
+                # Now show the panel frame
+                self.raw_panel_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+                self.raw_data_container.rowconfigure(1, weight=1)
+                self.raw_panel_expanded = True
+                self.raw_logging_check.config(text="▼ Disable Raw Modbus Data Logging")
+                
+                # Force update of the window
+                self.root.update_idletasks()
+            
+            self.log("Raw Modbus data logging enabled")
+            self.raw_display.insert(tk.END, f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] ", "timestamp")
+            self.raw_display.insert(tk.END, "Raw data logging started\n", "info")
+        else:
+            # Collapse panel
+            if self.raw_panel_expanded:
+                self.raw_panel_frame.grid_forget()
+                self.raw_data_container.rowconfigure(1, weight=0)
+                
+                # Reset container to non-expanding
+                self.raw_data_container.grid(row=4, column=0, columnspan=2, 
+                                            sticky=(tk.W, tk.E), pady=5)
+                # Remove row weight
+                parent = self.raw_data_container.master
+                parent.rowconfigure(4, weight=0)
+                
+                self.raw_panel_expanded = False
+                self.raw_logging_check.config(text="▶ Enable Raw Modbus Data Logging")
+                
+                # Force update of the window
+                self.root.update_idletasks()
+            
+            # Clean up frame assembly
+            if self.rx_frame_timer:
+                self.root.after_cancel(self.rx_frame_timer)
+                self.rx_frame_timer = None
+            self.rx_frame_buffer.clear()
+            
+            self.log("Raw Modbus data logging disabled")
+            if hasattr(self, 'raw_display'):
+                self.raw_display.insert(tk.END, f"[{datetime.now().strftime('%H:%M:%S.%f')[:-3]}] ", "timestamp")
+                self.raw_display.insert(tk.END, "Raw data logging stopped\n", "info")
+        
+        if hasattr(self, 'raw_display'):
+            self.raw_display.see(tk.END)
 
     def refresh_ports(self):
         """Refresh available COM ports"""
@@ -513,12 +827,13 @@ class RfidModbusTestGUI:
                 port = self.port_var.get()
                 baudrate = int(self.baud_var.get())
 
-                self.client = ModbusSerialClient(
+                self.client = LoggingModbusClient(
                     port=port,
                     baudrate=baudrate,
                     parity='E',
                     method='rtu',
-                    timeout=0.5
+                    timeout=0.5,
+                    raw_data_callback=self.handle_raw_data
                 )
 
                 if self.client.connect():
@@ -559,6 +874,244 @@ class RfidModbusTestGUI:
     def clear_log(self):
         """Clear log display"""
         self.log_display.delete(1.0, tk.END)
+    
+    def clear_raw_data(self):
+        """Clear raw data display"""
+        self.raw_display.delete(1.0, tk.END)
+        self.raw_data_buffer.clear()
+        self._tx_total = 0
+        self._rx_total = 0
+        self.update_raw_stats()
+        
+    def refresh_raw_display(self, event=None):
+        """Refresh raw data display with current format"""
+        # Re-display all buffered data with new format
+        self.raw_display.delete(1.0, tk.END)
+        for entry in self.raw_data_buffer:
+            self.display_raw_entry(entry)
+    
+    def update_raw_stats(self, tx_bytes=None, rx_bytes=None):
+        """Update raw data statistics"""
+        if not hasattr(self, '_tx_total'):
+            self._tx_total = 0
+            self._rx_total = 0
+        
+        if tx_bytes is not None:
+            self._tx_total += tx_bytes
+        if rx_bytes is not None:
+            self._rx_total += rx_bytes
+            
+        self.raw_stats_var.set(f"TX: {self._tx_total} bytes, RX: {self._rx_total} bytes")
+    
+    def handle_raw_data(self, direction, data):
+        """Callback for raw Modbus data from custom client"""
+        if not self.raw_logging_enabled:
+            return
+            
+        # Convert data to bytes
+        if isinstance(data, (bytes, bytearray)):
+            data_bytes = data
+        else:
+            data_bytes = b''
+            
+        if not data_bytes:
+            return
+            
+        timestamp = datetime.now().strftime('%H:%M:%S.%f')[:-3]
+        
+        if direction == 'TX':
+            # TX frames are usually complete, display immediately
+            self.display_frame(timestamp, direction, data_bytes)
+            self.update_raw_stats(tx_bytes=len(data_bytes))
+        else:
+            # RX frames might come in fragments, need to assemble
+            self.handle_rx_frame(timestamp, data_bytes)
+    
+    def handle_rx_frame(self, timestamp, data_bytes):
+        """Handle RX frame assembly"""
+        # Cancel previous timer
+        if self.rx_frame_timer:
+            self.root.after_cancel(self.rx_frame_timer)
+            self.rx_frame_timer = None
+        
+        # Add new data to buffer
+        self.rx_frame_buffer.extend(data_bytes)
+        
+        # Check if frame looks complete
+        if self.is_frame_complete(self.rx_frame_buffer):
+            # Display complete frame
+            self.display_frame(timestamp, 'RX', bytes(self.rx_frame_buffer))
+            self.update_raw_stats(rx_bytes=len(self.rx_frame_buffer))
+            self.rx_frame_buffer.clear()
+        else:
+            # Set timer to flush incomplete frame after timeout
+            self.rx_frame_timer = self.root.after(self.rtu_frame_timeout, 
+                                                lambda: self.flush_rx_frame(timestamp))
+    
+    def is_frame_complete(self, frame_data):
+        """Check if Modbus RTU frame appears complete"""
+        if len(frame_data) < 4:  # Minimum: slave_id, function, data, 2 CRC bytes
+            return False
+        
+        try:
+            slave_id = frame_data[0]
+            function = frame_data[1]
+            
+            # For read response (function 0x03), check expected length
+            if function == 0x03 and len(frame_data) >= 3:
+                byte_count = frame_data[2]
+                expected_length = 3 + byte_count + 2  # slave + func + count + data + CRC
+                return len(frame_data) >= expected_length
+            
+            # For other responses, assume complete if we have reasonable length and valid CRC
+            if len(frame_data) >= 5:  # At least slave + func + 1 data + 2 CRC
+                return self.has_valid_crc(frame_data)
+                
+        except:
+            pass
+            
+        return False
+    
+    def has_valid_crc(self, frame_data):
+        """Check if frame has valid CRC"""
+        if len(frame_data) < 4:
+            return False
+        
+        try:
+            # Calculate CRC for all but last 2 bytes
+            calculated_crc = self.calculate_modbus_crc(frame_data[:-2])
+            # Get received CRC (little endian)
+            received_crc = (frame_data[-1] << 8) | frame_data[-2]
+            return calculated_crc == received_crc
+        except:
+            return False
+    
+    def flush_rx_frame(self, timestamp):
+        """Flush incomplete RX frame after timeout"""
+        if self.rx_frame_buffer:
+            self.display_frame(timestamp, 'RX', bytes(self.rx_frame_buffer))
+            self.update_raw_stats(rx_bytes=len(self.rx_frame_buffer))
+            self.rx_frame_buffer.clear()
+        self.rx_frame_timer = None
+    
+    def display_frame(self, timestamp, direction, frame_data):
+        """Display a complete frame"""
+        hex_data = ' '.join([f'{b:02X}' for b in frame_data])
+        
+        # Store in buffer
+        entry = {
+            'timestamp': timestamp,
+            'direction': direction,
+            'hex_data': hex_data,
+            'raw_bytes': frame_data
+        }
+        
+        self.raw_data_buffer.append(entry)
+        if len(self.raw_data_buffer) > self.max_raw_buffer_size:
+            self.raw_data_buffer.pop(0)
+        
+        # Display the entry
+        self.display_raw_entry(entry)
+    
+    def display_raw_entry(self, entry):
+        """Display a single raw data entry in the chosen format"""
+        format_mode = self.raw_format_var.get()
+        
+        # Timestamp
+        self.raw_display.insert(tk.END, f"[{entry['timestamp']}] ", "timestamp")
+        
+        # Direction
+        tag = "tx" if entry['direction'] == 'TX' else "rx"
+        self.raw_display.insert(tk.END, f"{entry['direction']}: ", tag)
+        
+        # Hex data
+        self.raw_display.insert(tk.END, entry['hex_data'], tag)
+        
+        # Additional formatting based on mode
+        if format_mode == 'Hex + ASCII':
+            # Add ASCII representation
+            ascii_str = ""
+            for hex_byte in entry['hex_data'].split():
+                try:
+                    byte_val = int(hex_byte, 16)
+                    ascii_str += chr(byte_val) if 32 <= byte_val < 127 else '.'
+                except:
+                    ascii_str += '.'
+            self.raw_display.insert(tk.END, f"  |{ascii_str}|", "info")
+            
+        elif format_mode == 'Hex + Decode':
+            # Try to decode Modbus frame
+            decoded = self.decode_modbus_frame(entry['raw_bytes'], entry['direction'])
+            if decoded:
+                self.raw_display.insert(tk.END, f"  | {decoded}", "info")
+        
+        self.raw_display.insert(tk.END, "\n")
+        self.raw_display.see(tk.END)
+    
+    def decode_modbus_frame(self, data, direction):
+        """Decode Modbus RTU frame"""
+        if not data or len(data) < 4:
+            return ""
+        
+        try:
+            slave_id = data[0]
+            function = data[1]
+            
+            # Common function codes
+            func_names = {
+                0x03: "Read Holding Registers",
+                0x06: "Write Single Register",
+                0x10: "Write Multiple Registers",
+                0x04: "Read Input Registers"
+            }
+            
+            func_name = func_names.get(function, f"Function 0x{function:02X}")
+            
+            if len(data) >= 4:
+                # Calculate and verify CRC
+                crc_received = (data[-1] << 8) | data[-2]
+                crc_calculated = self.calculate_modbus_crc(data[:-2])
+                crc_ok = crc_received == crc_calculated
+                crc_status = "OK" if crc_ok else "ERROR"
+                
+                result = f"Slave:{slave_id} {func_name}"
+                
+                # Decode based on function code and direction
+                if function == 0x03 and direction == 'TX' and len(data) >= 8:
+                    # Read request
+                    addr = (data[2] << 8) | data[3]
+                    count = (data[4] << 8) | data[5]
+                    result += f" Addr:{addr} Count:{count}"
+                elif function == 0x03 and direction == 'RX' and len(data) >= 5:
+                    # Read response
+                    byte_count = data[2]
+                    result += f" Bytes:{byte_count}"
+                elif function == 0x10 and direction == 'TX' and len(data) >= 9:
+                    # Write multiple request
+                    addr = (data[2] << 8) | data[3]
+                    count = (data[4] << 8) | data[5]
+                    byte_count = data[6]
+                    result += f" Addr:{addr} Count:{count} Bytes:{byte_count}"
+                
+                result += f" CRC:{crc_status}"
+                return result
+            
+            return f"Slave:{slave_id} {func_name}"
+            
+        except Exception as e:
+            return f"Decode error: {e}"
+    
+    def calculate_modbus_crc(self, data):
+        """Calculate Modbus RTU CRC16"""
+        crc = 0xFFFF
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                if crc & 0x0001:
+                    crc = (crc >> 1) ^ 0xA001
+                else:
+                    crc >>= 1
+        return crc
 
     def modbus_read_registers(self, address, count, unit_id=None):
         """Helper function for Modbus read with error handling"""
@@ -943,6 +1496,134 @@ class RfidModbusTestGUI:
             self.show_error("Failed to write Key A (Key B written)")
         elif not success_b:
             self.show_error("Failed to write Key B (Key A written)")
+    
+    def read_basic_data(self):
+        """Read all basic data from device"""
+        self.clear_error()
+        if not self.check_connection():
+            return
+
+        try:
+            # Read all basic data registers from base module (address 10000+)
+            basic_data = {}
+            
+            # Read registers 10020-10021 (Firmware/Hardware Revision)
+            regs = self.modbus_read_registers(10020, 2)
+            basic_data[20] = regs[0]  # Firmware Revision
+            basic_data[21] = regs[1]  # Hardware Revision
+            
+            # Read registers 10022-10077 (all other basic data)
+            regs = self.modbus_read_registers(10022, 56)  # 10022 to 10077 = 56 registers
+            for i, reg_value in enumerate(regs):
+                basic_data[22 + i] = reg_value
+            
+            # Convert and display the data
+            self.display_basic_data(basic_data)
+            
+            self.log("Basic data read successfully")
+            self.show_success("Basic data updated")
+
+        except Exception as e:
+            self.handle_error(e, "Read basic data")
+    
+    def display_basic_data(self, data):
+        """Display basic data in the GUI fields"""
+        
+        # Firmware Revision (Register 20) - 2 bytes ASCII
+        if 20 in data:
+            fw_rev = self.register_to_ascii([data[20]])
+            self.fw_revision_var.set(fw_rev)
+        
+        # Hardware Revision (Register 21) - 2 bytes ASCII
+        if 21 in data:
+            hw_rev = self.register_to_ascii([data[21]])
+            self.hw_revision_var.set(hw_rev)
+        
+        # Module Serial Number (Registers 22-27) - 12 bytes ASCII
+        if all(reg in data for reg in range(22, 28)):
+            module_serial = self.register_to_ascii([data[reg] for reg in range(22, 28)])
+            self.module_serial_var.set(module_serial)
+        
+        # Product Name (Registers 28-35) - 16 bytes ASCII
+        if all(reg in data for reg in range(28, 36)):
+            product_name = self.register_to_ascii([data[reg] for reg in range(28, 36)])
+            self.product_name_var.set(product_name)
+        
+        # Product Order Type (Registers 36-43) - 16 bytes ASCII
+        if all(reg in data for reg in range(36, 44)):
+            product_order = self.register_to_ascii([data[reg] for reg in range(36, 44)])
+            self.product_order_var.set(product_order)
+        
+        # IO Link Device ID (Registers 44-45) - 3 bytes (special handling)
+        if all(reg in data for reg in range(44, 46)):
+            # Extract 3 bytes from 2 registers
+            reg1, reg2 = data[44], data[45]
+            byte1 = (reg1 >> 8) & 0xFF
+            byte2 = reg1 & 0xFF
+            byte3 = (reg2 >> 8) & 0xFF
+            iolink_id = f"0x{byte1:02X}{byte2:02X}{byte3:02X}"
+            self.iolink_id_var.set(iolink_id)
+        
+        # System Firmware Version (Registers 46-53) - 16 bytes ASCII
+        if all(reg in data for reg in range(46, 54)):
+            sys_fw_ver = self.register_to_ascii([data[reg] for reg in range(46, 54)])
+            self.sys_fw_version_var.set(sys_fw_ver)
+        
+        # System Serial Number (Registers 54-59) - 12 bytes ASCII
+        if all(reg in data for reg in range(54, 60)):
+            sys_serial = self.register_to_ascii([data[reg] for reg in range(54, 60)])
+            self.sys_serial_var.set(sys_serial)
+        
+        # Personal Number (Registers 60-61) - 4 bytes ASCII
+        if all(reg in data for reg in range(60, 62)):
+            personal_num = self.register_to_ascii([data[reg] for reg in range(60, 62)])
+            self.personal_num_var.set(personal_num)
+        
+        # System Hardware Version (Registers 62-69) - 16 bytes ASCII
+        if all(reg in data for reg in range(62, 70)):
+            sys_hw_ver = self.register_to_ascii([data[reg] for reg in range(62, 70)])
+            self.sys_hw_version_var.set(sys_hw_ver)
+        
+        # Product ID (Registers 70-77) - 16 bytes ASCII
+        if all(reg in data for reg in range(70, 78)):
+            product_id = self.register_to_ascii([data[reg] for reg in range(70, 78)])
+            self.product_id_var.set(product_id)
+    
+    def register_to_ascii(self, registers):
+        """Convert list of 16-bit registers to ASCII string"""
+        ascii_chars = []
+        for reg in registers:
+            # Each register contains 2 bytes (high byte, low byte)
+            high_byte = (reg >> 8) & 0xFF
+            low_byte = reg & 0xFF
+            
+            # Convert to ASCII, replace non-printable chars with spaces
+            if 32 <= high_byte <= 126:
+                ascii_chars.append(chr(high_byte))
+            else:
+                ascii_chars.append(' ')
+                
+            if 32 <= low_byte <= 126:
+                ascii_chars.append(chr(low_byte))
+            else:
+                ascii_chars.append(' ')
+        
+        return ''.join(ascii_chars).strip()
+    
+    def clear_basic_data(self):
+        """Clear all basic data fields"""
+        self.clear_error()
+        self.fw_revision_var.set("--")
+        self.hw_revision_var.set("--")
+        self.module_serial_var.set("--")
+        self.product_name_var.set("--")
+        self.product_order_var.set("--")
+        self.iolink_id_var.set("--")
+        self.sys_fw_version_var.set("--")
+        self.sys_serial_var.set("--")
+        self.personal_num_var.set("--")
+        self.sys_hw_version_var.set("--")
+        self.product_id_var.set("--")
 
     def read_mifare_block(self):
         """Read MIFARE block data"""
@@ -952,9 +1633,18 @@ class RfidModbusTestGUI:
 
         try:
             block_num = self.block_num_var.get()
+            
+            # Combine block number with key selection
+            # Low byte: block number, High byte bit 0: key selection (0=Key A, 1=Key B)
+            use_key_b = self.use_key_b_var.get()
+            register_value = block_num | (0x0100 if use_key_b else 0x0000)
+            
+            # Log the key being used
+            key_text = "Key B" if use_key_b else "Key A"
+            self.log(f"Reading block {block_num} using {key_text}")
 
-            # First write the block number
-            self.modbus_write_register(1016, block_num)
+            # First write the block number with key selection
+            self.modbus_write_register(1016, register_value)
 
             # Wait a bit for the operation
             time.sleep(0.1)
@@ -1029,7 +1719,10 @@ class RfidModbusTestGUI:
                                    "Writing to trailer blocks can lock the sector permanently.\n" +
                                    "Use the Key A/B fields instead to modify keys safely.")
             
-            self.log(f"Writing to {self.get_block_info(block_num)}")
+            # Log the key being used
+            use_key_b = self.use_key_b_var.get()
+            key_text = "Key B" if use_key_b else "Key A"
+            self.log(f"Writing to {self.get_block_info(block_num)} using {key_text}")
             
             # Parse and auto-pad block data
             block_hex = self.block_data_var.get().replace(" ", "").upper()
@@ -1063,8 +1756,10 @@ class RfidModbusTestGUI:
                 reg = (block_bytes[i] << 8) | block_bytes[i+1]
                 block_regs.append(reg)
 
-            # Write block number
-            self.modbus_write_register(1016, block_num)
+            # Write block number with key selection
+            # Low byte: block number, High byte bit 0: key selection (0=Key A, 1=Key B)
+            register_value = block_num | (0x0100 if use_key_b else 0x0000)
+            self.modbus_write_register(1016, register_value)
 
             # Write block data (registers 1018-1025)
             self.modbus_write_registers(1018, block_regs)
