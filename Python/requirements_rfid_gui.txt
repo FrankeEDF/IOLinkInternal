@@ -1,0 +1,8 @@
+# Requirements for RFID Modbus Test GUI
+# Install with: pip install -r requirements_rfid_gui.txt
+
+pymodbus==2.5.3
+pyserial>=3.5
+
+# Note: tkinter is included with Python standard library
+# No additional GUI dependencies needed
