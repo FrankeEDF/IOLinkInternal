@@ -95,9 +95,9 @@ class RfidModbusTestGUI:
             last_error = result[0]
 
             # Extract Low and High bytes
-            low_byte = last_error & 0xFF        # Low byte (bits 0-7)
-            high_byte = (last_error >> 8) & 0xFF # High byte (bits 8-15)
-            
+            low_byte = last_error & 0xFF  # Low byte (bits 0-7)
+            high_byte = (last_error >> 8) & 0xFF  # High byte (bits 8-15)
+
             # Update the GUI fields with hex values
             low_hex = f"0x{low_byte:02X}"
             high_hex = f"0x{high_byte:02X}"
@@ -258,7 +258,8 @@ class RfidModbusTestGUI:
         fb_btn_frame = ttk.Frame(fb_frame)
         fb_btn_frame.grid(row=1, column=0, columnspan=4, pady=10)
 
-        ttk.Button(fb_btn_frame, text="Read Current FB", command=self.read_and_display_function_block).pack(side=tk.LEFT, padx=5)
+        ttk.Button(fb_btn_frame, text="Read Current FB", command=self.read_and_display_function_block).pack(
+            side=tk.LEFT, padx=5)
         ttk.Button(fb_btn_frame, text="Set Function Block", command=self.set_function_block).pack(side=tk.LEFT, padx=5)
 
         # Create notebook for different sections
@@ -303,7 +304,7 @@ class RfidModbusTestGUI:
         # Error text display
         self.error_var = tk.StringVar()
         self.error_label = ttk.Label(self.error_frame, textvariable=self.error_var,
-                                    foreground="red", font=("Arial", 10, "bold"))
+                                     foreground="red", font=("Arial", 10, "bold"))
         self.error_label.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
         self.error_frame.columnconfigure(0, weight=1)
         self.error_frame.rowconfigure(0, weight=1)
@@ -480,7 +481,8 @@ class RfidModbusTestGUI:
         row += 1
 
         # Module Serial Number (Register 10022-10027)
-        ttk.Label(device_frame, text="Module Serial Number (10022-10027):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="Module Serial Number (10022-10027):").grid(row=row, column=0, sticky=tk.W, padx=5,
+                                                                                 pady=2)
         self.module_serial_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.module_serial_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
@@ -494,42 +496,48 @@ class RfidModbusTestGUI:
         row += 1
 
         # Product Order Type (Register 10036-10043)
-        ttk.Label(device_frame, text="Product Order Type (10036-10043):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="Product Order Type (10036-10043):").grid(row=row, column=0, sticky=tk.W, padx=5,
+                                                                               pady=2)
         self.product_order_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.product_order_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
         row += 1
 
         # IO Link Device ID (Register 10044-10045)
-        ttk.Label(device_frame, text="IO Link Device ID (10044-10045):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="IO Link Device ID (10044-10045):").grid(row=row, column=0, sticky=tk.W, padx=5,
+                                                                              pady=2)
         self.iolink_id_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.iolink_id_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
         row += 1
 
         # System Firmware Version (Register 10046-10053)
-        ttk.Label(device_frame, text="System Firmware Version (10046-10053):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="System Firmware Version (10046-10053):").grid(row=row, column=0, sticky=tk.W,
+                                                                                    padx=5, pady=2)
         self.sys_fw_version_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.sys_fw_version_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
         row += 1
 
         # System Serial Number (Register 10054-10059)
-        ttk.Label(device_frame, text="System Serial Number (10054-10059):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="System Serial Number (10054-10059):").grid(row=row, column=0, sticky=tk.W, padx=5,
+                                                                                 pady=2)
         self.sys_serial_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.sys_serial_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
         row += 1
 
         # Personal Number (Register 10060-10061)
-        ttk.Label(device_frame, text="Personal Number (10060-10061):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="Personal Number (10060-10061):").grid(row=row, column=0, sticky=tk.W, padx=5,
+                                                                            pady=2)
         self.personal_num_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.personal_num_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
         row += 1
 
         # System Hardware Version (Register 10062-10069)
-        ttk.Label(device_frame, text="System Hardware Version (10062-10069):").grid(row=row, column=0, sticky=tk.W, padx=5, pady=2)
+        ttk.Label(device_frame, text="System Hardware Version (10062-10069):").grid(row=row, column=0, sticky=tk.W,
+                                                                                    padx=5, pady=2)
         self.sys_hw_version_var = tk.StringVar(value="--")
         ttk.Label(device_frame, textvariable=self.sys_hw_version_var, font=("Courier", 10), width=25).grid(
             row=row, column=1, sticky=tk.W, padx=5, pady=2)
@@ -552,6 +560,7 @@ class RfidModbusTestGUI:
         # Enable mousewheel scrolling
         def on_mousewheel(event):
             main_canvas.yview_scroll(int(-1 * (event.delta / 120)), "units")
+
         main_canvas.bind("<MouseWheel>", on_mousewheel)
 
     def create_mifare_tab(self, notebook):
@@ -590,20 +599,20 @@ class RfidModbusTestGUI:
         ttk.Label(block_frame, text="Block Number (1016):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
         self.block_num_var = tk.IntVar(value=4)
         block_spin = ttk.Spinbox(block_frame, from_=0, to=255, textvariable=self.block_num_var, width=10,
-                                command=self.update_block_info)
+                                 command=self.update_block_info)
         block_spin.grid(row=0, column=1, padx=5, pady=2)
 
         # Add key selection checkbox (for high byte bit 0 of register 1016)
         self.use_key_b_var = tk.BooleanVar(value=False)
         key_select_check = ttk.Checkbutton(block_frame, text="Use Key B",
-                                          variable=self.use_key_b_var,
-                                          command=self.update_key_selection_display)
+                                           variable=self.use_key_b_var,
+                                           command=self.update_key_selection_display)
         key_select_check.grid(row=0, column=2, padx=5, pady=2)
 
         # Add block type info label with fixed width
         self.block_info_var = tk.StringVar()
         self.block_info_label = ttk.Label(block_frame, textvariable=self.block_info_var,
-                                         font=("Arial", 9), foreground="blue", width=35)
+                                          font=("Arial", 9), foreground="blue", width=35)
         self.block_info_label.grid(row=0, column=3, sticky=tk.W, padx=10, pady=2)
 
         # Bind variable change to update block info
@@ -619,9 +628,9 @@ class RfidModbusTestGUI:
 
         # Info label about auto-padding and block validation
         ttk.Label(block_frame, text="(Auto-pads with FF if less than 32 hex characters)",
-                 font=("Arial", 8), foreground="gray").grid(row=2, column=1, sticky=tk.W, padx=5)
+                  font=("Arial", 8), foreground="gray").grid(row=2, column=1, sticky=tk.W, padx=5)
         ttk.Label(block_frame, text="⚠️ Write only allowed for Data Blocks (Read allows all blocks)",
-                 font=("Arial", 8), foreground="red").grid(row=3, column=1, columnspan=3, sticky=tk.W, padx=5)
+                  font=("Arial", 8), foreground="red").grid(row=3, column=1, columnspan=3, sticky=tk.W, padx=5)
 
         # Buttons
         btn_frame = ttk.Frame(block_frame)
@@ -639,23 +648,23 @@ class RfidModbusTestGUI:
         error_frame.grid(row=5, column=0, columnspan=4, pady=(10, 0))
 
         ttk.Label(error_frame, text="LastError (1026):").grid(row=0, column=0, sticky=tk.W, padx=5)
-        
+
         # Low Byte display
         ttk.Label(error_frame, text="Low:").grid(row=0, column=1, sticky=tk.W, padx=(10, 2))
         self.last_error_low_var = tk.StringVar(value="0x00")
-        self.last_error_low_label = ttk.Label(error_frame, textvariable=self.last_error_low_var, 
-                                             font=("Courier", 10, "bold"), foreground="green", width=5)
+        self.last_error_low_label = ttk.Label(error_frame, textvariable=self.last_error_low_var,
+                                              font=("Courier", 10, "bold"), foreground="green", width=5)
         self.last_error_low_label.grid(row=0, column=2, padx=2)
-        
-        # High Byte display  
+
+        # High Byte display
         ttk.Label(error_frame, text="High:").grid(row=0, column=3, sticky=tk.W, padx=(10, 2))
         self.last_error_high_var = tk.StringVar(value="0x00")
-        self.last_error_high_label = ttk.Label(error_frame, textvariable=self.last_error_high_var, 
-                                              font=("Courier", 10, "bold"), foreground="green", width=5)
+        self.last_error_high_label = ttk.Label(error_frame, textvariable=self.last_error_high_var,
+                                               font=("Courier", 10, "bold"), foreground="green", width=5)
         self.last_error_high_label.grid(row=0, column=4, padx=2)
-        
-        ttk.Label(error_frame, text="(Updated after each Block Read/Write)", 
-                 font=("Arial", 8), foreground="gray").grid(row=0, column=5, padx=(10, 5))
+
+        ttk.Label(error_frame, text="(Updated after each Block Read/Write)",
+                  font=("Arial", 8), foreground="gray").grid(row=0, column=5, padx=(10, 5))
 
         # Data display
         data_frame = ttk.LabelFrame(tab, text="Block Data Display", padding="10")
@@ -752,8 +761,8 @@ class RfidModbusTestGUI:
         # Enable/disable raw logging checkbox (also controls collapse)
         self.raw_logging_var = tk.BooleanVar(value=False)
         self.raw_logging_check = ttk.Checkbutton(control_bar, text="▶ Enable Raw Modbus Data Logging",
-                                                variable=self.raw_logging_var,
-                                                command=self.toggle_raw_panel)
+                                                 variable=self.raw_logging_var,
+                                                 command=self.toggle_raw_panel)
         self.raw_logging_check.grid(row=0, column=0, padx=5)
 
         # Statistics (always visible)
@@ -776,13 +785,13 @@ class RfidModbusTestGUI:
         control_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=5, pady=5)
 
         ttk.Button(control_frame, text="Clear Raw Data",
-                  command=self.clear_raw_data).grid(row=0, column=0, padx=5)
+                   command=self.clear_raw_data).grid(row=0, column=0, padx=5)
 
         # Display format options
         ttk.Label(control_frame, text="Display:").grid(row=0, column=1, padx=(20, 5))
         self.raw_format_var = tk.StringVar(value="hex")
         format_combo = ttk.Combobox(control_frame, textvariable=self.raw_format_var,
-                                   width=15, state="readonly")
+                                    width=15, state="readonly")
         format_combo['values'] = ('Hex Only', 'Hex + ASCII', 'Hex + Decode')
         format_combo.set('Hex + Decode')
         format_combo.grid(row=0, column=2, padx=5)
@@ -796,7 +805,7 @@ class RfidModbusTestGUI:
 
         # Create text widget with monospace font (smaller height for panel)
         self.raw_display = scrolledtext.ScrolledText(display_frame, width=100, height=12,
-                                                    font=("Courier", 9), wrap=tk.NONE)
+                                                     font=("Courier", 9), wrap=tk.NONE)
         self.raw_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         display_frame.rowconfigure(0, weight=1)
         display_frame.columnconfigure(0, weight=1)
@@ -811,7 +820,7 @@ class RfidModbusTestGUI:
 
         # Horizontal scrollbar for long lines
         h_scrollbar = ttk.Scrollbar(display_frame, orient="horizontal",
-                                   command=self.raw_display.xview)
+                                    command=self.raw_display.xview)
         h_scrollbar.grid(row=1, column=0, sticky=(tk.W, tk.E))
         self.raw_display.config(xscrollcommand=h_scrollbar.set)
 
@@ -824,7 +833,7 @@ class RfidModbusTestGUI:
             if not self.raw_panel_expanded:
                 # First update the container to allow expansion
                 self.raw_data_container.grid(row=4, column=0, columnspan=2,
-                                            sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+                                             sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
                 # Get parent and configure row weight
                 parent = self.raw_data_container.master
                 parent.rowconfigure(4, weight=1)
@@ -849,7 +858,7 @@ class RfidModbusTestGUI:
 
                 # Reset container to non-expanding
                 self.raw_data_container.grid(row=4, column=0, columnspan=2,
-                                            sticky=(tk.W, tk.E), pady=5)
+                                             sticky=(tk.W, tk.E), pady=5)
                 # Remove row weight
                 parent = self.raw_data_container.master
                 parent.rowconfigure(4, weight=0)
@@ -1016,7 +1025,7 @@ class RfidModbusTestGUI:
         else:
             # Set timer to flush incomplete frame after timeout
             self.rx_frame_timer = self.root.after(self.rtu_frame_timeout,
-                                                lambda: self.flush_rx_frame(timestamp))
+                                                  lambda: self.flush_rx_frame(timestamp))
 
     def is_frame_complete(self, frame_data):
         """Check if Modbus RTU frame appears complete"""
@@ -1789,11 +1798,11 @@ class RfidModbusTestGUI:
             if not self.is_data_block(block_num):
                 if block_num == 0:
                     raise ValueError("Block 0 is the UID/Manufacturer block and cannot be written!\n" +
-                                   "Writing to this block would make the transponder unusable.")
+                                     "Writing to this block would make the transponder unusable.")
                 else:
                     raise ValueError(f"Block {block_num} is a Trailer Block containing keys and access bits!\n" +
-                                   "Writing to trailer blocks can lock the sector permanently.\n" +
-                                   "Use the Key A/B fields instead to modify keys safely.")
+                                     "Writing to trailer blocks can lock the sector permanently.\n" +
+                                     "Use the Key A/B fields instead to modify keys safely.")
 
             # Log the key being used
             use_key_b = self.use_key_b_var.get()
@@ -1829,7 +1838,7 @@ class RfidModbusTestGUI:
             # Convert to registers (8 registers = 16 bytes)
             block_regs = []
             for i in range(0, 16, 2):
-                reg = (block_bytes[i] << 8) | block_bytes[i+1]
+                reg = (block_bytes[i] << 8) | block_bytes[i + 1]
                 block_regs.append(reg)
 
             # Write block number with key selection
