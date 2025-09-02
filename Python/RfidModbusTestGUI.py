@@ -276,10 +276,13 @@ class RfidModbusTestGUI:
         # Tab 3: MIFARE Operations
         self.create_mifare_tab(notebook)
 
-        # Tab 4: Manual Register Access
+        # Tab 4: Tunnel Mode (Funktionsbaustein 3)
+        self.create_tunnel_tab(notebook)
+
+        # Tab 5: Manual Register Access
         self.create_manual_tab(notebook)
 
-        # Tab 5: Log
+        # Tab 6: Log
         self.create_log_tab(notebook)
 
         # Raw Modbus Data Panel (collapsible)
@@ -333,6 +336,131 @@ class RfidModbusTestGUI:
         if self.error_clear_timer:
             self.root.after_cancel(self.error_clear_timer)
             self.error_clear_timer = None
+
+    # Tunnel Mode Methods (Funktionsbaustein 3)
+    def use_quick_command(self):
+        """Use selected quick command in tunnel mode"""
+        selection = self.quick_cmd_var.get()
+        if selection:
+            # Extract hex part after the colon
+            hex_part = selection.split(": ", 1)[-1]
+            self.tunnel_tx_var.set(hex_part)
+
+    def tunnel_send_data(self):
+        """Send data through RFID tunnel mode"""
+        self.clear_error()
+        if not self.check_connection():
+            return
+
+        try:
+            # Check if we're in tunnel mode (FB3)
+            current_fb = self.modbus_read_register(1009)
+            self.tunnel_fb_var.set(str(current_fb))
+            
+            if current_fb != 3:
+                raise ValueError(f"Not in Tunnel Mode! Current Function Block: {current_fb}. Set FB to 3 first.")
+
+            # Parse hex data
+            hex_data = self.tunnel_tx_var.get().replace(" ", "").replace("CRC", "").upper()
+            
+            # Validate hex characters
+            if not all(c in '0123456789ABCDEF' for c in hex_data):
+                raise ValueError("Invalid hex characters in TX data")
+            
+            if len(hex_data) % 2 != 0:
+                raise ValueError("Hex data must have even number of characters")
+                
+            if len(hex_data) > 80:  # 40 bytes max
+                raise ValueError("TX data too long (max 40 bytes = 80 hex chars)")
+
+            # Convert to bytes
+            tx_bytes = bytes.fromhex(hex_data)
+            tx_length = len(tx_bytes)
+            
+            self.log(f"Tunnel: Sending {tx_length} bytes: {hex_data}")
+
+            # Convert bytes to 16-bit registers (little endian)
+            tx_registers = []
+            for i in range(0, len(tx_bytes), 2):
+                if i + 1 < len(tx_bytes):
+                    # Pack two bytes into one register: high byte | low byte
+                    reg = (tx_bytes[i] << 8) | tx_bytes[i + 1]
+                else:
+                    # Last byte, pad with zero
+                    reg = tx_bytes[i] << 8
+                tx_registers.append(reg)
+            
+            # Prepare combined TX data: TX Length + TX Data
+            combined_data = [tx_length] + tx_registers
+            
+            # Write TX length + data starting at 2200 (this executes immediately)
+            self.modbus_write_registers(2200, combined_data)
+            
+            # Update status
+            self.tunnel_tx_len_var.set(str(tx_length))
+            
+            self.log(f"Tunnel: TX data sent and executed")
+            self.show_success("TX data sent to RFID and executed")
+            
+            # Auto-read response after short delay
+            self.root.after(200, self.tunnel_read_response)
+
+        except Exception as e:
+            self.handle_error(e, "Tunnel send data")
+
+    def tunnel_read_response(self):
+        """Read response data from RFID tunnel mode"""
+        self.clear_error()
+        if not self.check_connection():
+            return
+
+        try:
+            # Read RX Length + Data starting at 2100
+            # Always read at least 1 register for RX Length, + up to 20 for data
+            max_read_count = 21  # 1 for RX Length + 20 for RX Data
+            rx_all = self.modbus_read_registers(2100, max_read_count)
+            
+            # First register is RX Length
+            rx_length = rx_all[0]
+            self.tunnel_rx_len_var.set(str(rx_length))
+            
+            if rx_length == 0:
+                self.tunnel_rx_display.insert(tk.END, "No response data available\n")
+                return
+
+            # Remaining registers are RX Data
+            rx_registers = rx_all[1:]
+            
+            # Convert registers back to bytes
+            rx_bytes = []
+            for reg in rx_registers:
+                rx_bytes.append((reg >> 8) & 0xFF)  # High byte
+                if len(rx_bytes) < rx_length:
+                    rx_bytes.append(reg & 0xFF)  # Low byte
+
+            # Trim to actual response length
+            rx_bytes = rx_bytes[:rx_length]
+            
+            # Display response
+            hex_str = ' '.join([f'{b:02X}' for b in rx_bytes])
+            ascii_str = ''.join([chr(b) if 32 <= b < 127 else '.' for b in rx_bytes])
+            
+            timestamp = time.strftime("%H:%M:%S")
+            response_text = f"[{timestamp}] RX ({rx_length} bytes): {hex_str}\n"
+            response_text += f"               ASCII: {ascii_str}\n\n"
+            
+            self.tunnel_rx_display.insert(tk.END, response_text)
+            self.tunnel_rx_display.see(tk.END)
+            
+            self.log(f"Tunnel: Received {rx_length} bytes: {hex_str}")
+
+        except Exception as e:
+            self.handle_error(e, "Tunnel read response")
+
+    def clear_tunnel_rx(self):
+        """Clear tunnel RX display"""
+        self.tunnel_rx_display.delete(1.0, tk.END)
+        self.tunnel_rx_len_var.set("0")
 
     def handle_error(self, error_msg, operation_name=""):
         """Common error handler for all operations"""
@@ -675,6 +803,87 @@ class RfidModbusTestGUI:
         self.block_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         data_frame.rowconfigure(0, weight=1)
         data_frame.columnconfigure(0, weight=1)
+
+    def create_tunnel_tab(self, notebook):
+        """Create Tunnel Mode tab (Funktionsbaustein 3)"""
+        tab = ttk.Frame(notebook)
+        notebook.add(tab, text="Tunnel Mode (FB3)")
+
+        # Info frame
+        info_frame = ttk.LabelFrame(tab, text="RFID-UART Tunnel Mode", padding="10")
+        info_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        info_text = ("Tunnel Mode allows direct RFID-UART communication over Modbus.\n"
+                    "Set Function Block to 3, then send raw UART data to RFID reader.\n"
+                    "• TX Length: Register 2200 (set before writing TX data)\n"
+                    "• TX Data: Written to registers 2201-2220 (40 bytes max) - executes immediately\n"  
+                    "• RX Length: Register 2100 contains response length\n"
+                    "• RX Data: Read from registers 2101-2120 (40 bytes max)")
+        ttk.Label(info_frame, text=info_text, justify=tk.LEFT).pack()
+
+        # TX Data frame
+        tx_frame = ttk.LabelFrame(tab, text="TX Data (Send to RFID)", padding="10")
+        tx_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        tab.columnconfigure(0, weight=1)
+
+        ttk.Label(tx_frame, text="Hex Data (max 80 chars = 40 bytes):").pack(anchor=tk.W)
+        self.tunnel_tx_var = tk.StringVar(value="50 00 05 22 01 00 CRC")
+        self.tunnel_tx_entry = ttk.Entry(tx_frame, textvariable=self.tunnel_tx_var, width=80, font=("Courier", 9))
+        self.tunnel_tx_entry.pack(fill=tk.X, pady=2)
+
+        # TX buttons
+        tx_btn_frame = ttk.Frame(tx_frame)
+        tx_btn_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(tx_btn_frame, text="Send to RFID", command=self.tunnel_send_data).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(tx_btn_frame, text="Clear TX", command=lambda: self.tunnel_tx_var.set("")).pack(side=tk.LEFT, padx=5)
+        
+        # Common RFID commands dropdown
+        ttk.Label(tx_btn_frame, text="Quick Commands:").pack(side=tk.LEFT, padx=(20, 5))
+        self.quick_cmd_var = tk.StringVar()
+        quick_cmds = ttk.Combobox(tx_btn_frame, textvariable=self.quick_cmd_var, width=25, state="readonly")
+        quick_cmds['values'] = (
+            "Get UID: 50 00 05 22 01 00 E3 19",
+            "Get Version: 50 00 05 20 00 00 21 19", 
+            "Read Block 4: 50 00 06 17 04 00 62 D9",
+            "LED Blue: 50 00 05 16 00 00 A0 D9",
+            "LED Off: 50 00 05 19 00 00 F3 19"
+        )
+        quick_cmds.pack(side=tk.LEFT, padx=5)
+        ttk.Button(tx_btn_frame, text="Use", command=self.use_quick_command).pack(side=tk.LEFT, padx=(5, 0))
+
+        # RX Data frame  
+        rx_frame = ttk.LabelFrame(tab, text="RX Data (Response from RFID)", padding="10")
+        rx_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        tab.rowconfigure(2, weight=1)
+
+        # RX display
+        self.tunnel_rx_display = scrolledtext.ScrolledText(rx_frame, width=80, height=8, font=("Courier", 9))
+        self.tunnel_rx_display.pack(fill=tk.BOTH, expand=True, pady=2)
+
+        # RX buttons
+        rx_btn_frame = ttk.Frame(rx_frame) 
+        rx_btn_frame.pack(fill=tk.X, pady=5)
+        ttk.Button(rx_btn_frame, text="Read Response", command=self.tunnel_read_response).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(rx_btn_frame, text="Clear RX", command=self.clear_tunnel_rx).pack(side=tk.LEFT, padx=5)
+
+        # Status frame
+        status_frame = ttk.LabelFrame(tab, text="Status", padding="10") 
+        status_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        status_info_frame = ttk.Frame(status_frame)
+        status_info_frame.pack(fill=tk.X)
+        
+        ttk.Label(status_info_frame, text="TX Length:").pack(side=tk.LEFT)
+        self.tunnel_tx_len_var = tk.StringVar(value="0")
+        ttk.Label(status_info_frame, textvariable=self.tunnel_tx_len_var, width=6).pack(side=tk.LEFT, padx=(5, 20))
+        
+        ttk.Label(status_info_frame, text="RX Length:").pack(side=tk.LEFT)
+        self.tunnel_rx_len_var = tk.StringVar(value="0") 
+        ttk.Label(status_info_frame, textvariable=self.tunnel_rx_len_var, width=6).pack(side=tk.LEFT, padx=(5, 20))
+        
+        ttk.Label(status_info_frame, text="Function Block:").pack(side=tk.LEFT)
+        self.tunnel_fb_var = tk.StringVar(value="?")
+        ttk.Label(status_info_frame, textvariable=self.tunnel_fb_var, width=6).pack(side=tk.LEFT, padx=5)
 
     def create_manual_tab(self, notebook):
         tab = ttk.Frame(notebook)
