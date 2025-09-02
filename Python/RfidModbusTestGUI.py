@@ -354,7 +354,10 @@ class RfidModbusTestGUI:
 
         try:
             # Check if we're in tunnel mode (FB3)
-            current_fb = self.modbus_read_register(1009)
+            current_fb_regs = self.modbus_read_registers(1009, 1)
+            if current_fb_regs is None or len(current_fb_regs) == 0:
+                raise ValueError("Failed to read Function Block register")
+            current_fb = current_fb_regs[0]
             self.tunnel_fb_var.set(str(current_fb))
             
             if current_fb != 3:
