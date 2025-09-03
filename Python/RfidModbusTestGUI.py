@@ -176,6 +176,80 @@ class RfidModbusTestGUI:
                 block_in_sector = (block_num - 128) % 16
             return f"Data Block (Sector {sector}, Block {block_in_sector})"
 
+    def bytes_to_registers(self, byte_array):
+        """Convert byte array to Modbus registers (16-bit values).
+
+        Modbus registers store data in little-endian within each register:
+        - Register value = (byte[1] << 8) | byte[0]
+        - This means: byte[0] goes to low byte, byte[1] goes to high byte
+
+        Args:
+            byte_array: Array of bytes to convert
+
+        Returns:
+            List of 16-bit register values
+        """
+        registers = []
+        for i in range(0, len(byte_array), 2):
+            if i + 1 < len(byte_array):
+                # Two bytes available: second byte becomes high byte, first byte becomes low byte
+                reg = (byte_array[i + 1] << 8) | byte_array[i]
+            else:
+                # Only one byte left: it becomes low byte, high byte is 0
+                reg = byte_array[i]
+            registers.append(reg)
+        return registers
+
+    def registers_to_bytes(self, registers, byte_count=None):
+        """Convert Modbus registers to byte array.
+
+        Modbus registers store data in little-endian within each register:
+        - Low byte = register & 0xFF
+        - High byte = (register >> 8) & 0xFF
+
+        Args:
+            registers: List of 16-bit register values
+            byte_count: Optional number of bytes to extract (for trimming)
+
+        Returns:
+            Array of bytes
+        """
+        byte_array = []
+        for reg in registers:
+            byte_array.append(reg & 0xFF)          # Low byte first
+            byte_array.append((reg >> 8) & 0xFF)   # High byte second
+
+        # Trim to specified byte count if provided
+        if byte_count is not None:
+            byte_array = byte_array[:byte_count]
+
+        return byte_array
+
+    def registers_to_ascii_bytes(self, registers, byte_count=None):
+        """Convert Modbus registers to byte array for ASCII strings.
+
+        ASCII strings in firmware are stored with natural byte order:
+        - High byte = (register >> 8) & 0xFF  (first character)
+        - Low byte = register & 0xFF           (second character)
+
+        Args:
+            registers: List of 16-bit register values
+            byte_count: Optional number of bytes to extract (for trimming)
+
+        Returns:
+            Array of bytes in ASCII order
+        """
+        byte_array = []
+        for reg in registers:
+            byte_array.append((reg >> 8) & 0xFF)   # High byte first for ASCII
+            byte_array.append(reg & 0xFF)          # Low byte second
+
+        # Trim to specified byte count if provided
+        if byte_count is not None:
+            byte_array = byte_array[:byte_count]
+
+        return byte_array
+
     def update_block_info(self, *args):
         """Update block info label when block number changes"""
         try:
@@ -344,7 +418,8 @@ class RfidModbusTestGUI:
         if selection:
             # Extract hex part after the colon
             hex_part = selection.split(": ", 1)[-1]
-            self.tunnel_tx_var.set(hex_part)
+            self.tunnel_tx_display.delete(1.0, tk.END)
+            self.tunnel_tx_display.insert(1.0, hex_part)
 
     def tunnel_send_data(self):
         """Send data through RFID tunnel mode"""
@@ -353,58 +428,40 @@ class RfidModbusTestGUI:
             return
 
         try:
-            # Check if we're in tunnel mode (FB3)
-            current_fb_regs = self.modbus_read_registers(1009, 1)
-            if current_fb_regs is None or len(current_fb_regs) == 0:
-                raise ValueError("Failed to read Function Block register")
-            current_fb = current_fb_regs[0]
-            self.tunnel_fb_var.set(str(current_fb))
-            
-            if current_fb != 3:
-                raise ValueError(f"Not in Tunnel Mode! Current Function Block: {current_fb}. Set FB to 3 first.")
-
             # Parse hex data
-            hex_data = self.tunnel_tx_var.get().replace(" ", "").replace("CRC", "").upper()
-            
+            hex_data = self.tunnel_tx_display.get(1.0, tk.END).strip().replace(" ", "").replace("CRC", "").upper()
+
             # Validate hex characters
             if not all(c in '0123456789ABCDEF' for c in hex_data):
                 raise ValueError("Invalid hex characters in TX data")
-            
+
             if len(hex_data) % 2 != 0:
                 raise ValueError("Hex data must have even number of characters")
-                
+
             if len(hex_data) > 80:  # 40 bytes max
                 raise ValueError("TX data too long (max 40 bytes = 80 hex chars)")
 
             # Convert to bytes
             tx_bytes = bytes.fromhex(hex_data)
             tx_length = len(tx_bytes)
-            
+
             self.log(f"Tunnel: Sending {tx_length} bytes: {hex_data}")
 
-            # Convert bytes to 16-bit registers (little endian)
-            tx_registers = []
-            for i in range(0, len(tx_bytes), 2):
-                if i + 1 < len(tx_bytes):
-                    # Pack two bytes into one register: high byte | low byte
-                    reg = (tx_bytes[i] << 8) | tx_bytes[i + 1]
-                else:
-                    # Last byte, pad with zero
-                    reg = tx_bytes[i] << 8
-                tx_registers.append(reg)
-            
+            # Convert bytes to registers using central function
+            tx_registers = self.bytes_to_registers(tx_bytes)
+
             # Prepare combined TX data: TX Length + TX Data
             combined_data = [tx_length] + tx_registers
-            
+
             # Write TX length + data starting at 2200 (this executes immediately)
             self.modbus_write_registers(2200, combined_data)
-            
+
             # Update status
             self.tunnel_tx_len_var.set(str(tx_length))
-            
+
             self.log(f"Tunnel: TX data sent and executed")
             self.show_success("TX data sent to RFID and executed")
-            
+
             # Auto-read response after short delay
             self.root.after(200, self.tunnel_read_response)
 
@@ -422,39 +479,33 @@ class RfidModbusTestGUI:
             # Always read at least 1 register for RX Length, + up to 20 for data
             max_read_count = 21  # 1 for RX Length + 20 for RX Data
             rx_all = self.modbus_read_registers(2100, max_read_count)
-            
+
             # First register is RX Length
             rx_length = rx_all[0]
             self.tunnel_rx_len_var.set(str(rx_length))
-            
+
+
             if rx_length == 0:
                 self.tunnel_rx_display.insert(tk.END, "No response data available\n")
                 return
 
             # Remaining registers are RX Data
             rx_registers = rx_all[1:]
-            
-            # Convert registers back to bytes
-            rx_bytes = []
-            for reg in rx_registers:
-                rx_bytes.append((reg >> 8) & 0xFF)  # High byte
-                if len(rx_bytes) < rx_length:
-                    rx_bytes.append(reg & 0xFF)  # Low byte
 
-            # Trim to actual response length
-            rx_bytes = rx_bytes[:rx_length]
-            
+            # Convert registers to bytes using central function
+            rx_bytes = self.registers_to_bytes(rx_registers, rx_length)
+
             # Display response
             hex_str = ' '.join([f'{b:02X}' for b in rx_bytes])
             ascii_str = ''.join([chr(b) if 32 <= b < 127 else '.' for b in rx_bytes])
-            
+
             timestamp = time.strftime("%H:%M:%S")
             response_text = f"[{timestamp}] RX ({rx_length} bytes): {hex_str}\n"
             response_text += f"               ASCII: {ascii_str}\n\n"
-            
+
             self.tunnel_rx_display.insert(tk.END, response_text)
             self.tunnel_rx_display.see(tk.END)
-            
+
             self.log(f"Tunnel: Received {rx_length} bytes: {hex_str}")
 
         except Exception as e:
@@ -812,81 +863,67 @@ class RfidModbusTestGUI:
         tab = ttk.Frame(notebook)
         notebook.add(tab, text="Tunnel Mode (FB3)")
 
-        # Info frame
-        info_frame = ttk.LabelFrame(tab, text="RFID-UART Tunnel Mode", padding="10")
-        info_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        
-        info_text = ("Tunnel Mode allows direct RFID-UART communication over Modbus.\n"
-                    "Set Function Block to 3, then send raw UART data to RFID reader.\n"
-                    "• TX Length: Register 2200 (set before writing TX data)\n"
-                    "• TX Data: Written to registers 2201-2220 (40 bytes max) - executes immediately\n"  
-                    "• RX Length: Register 2100 contains response length\n"
-                    "• RX Data: Read from registers 2101-2120 (40 bytes max)")
-        ttk.Label(info_frame, text=info_text, justify=tk.LEFT).pack()
-
         # TX Data frame
         tx_frame = ttk.LabelFrame(tab, text="TX Data (Send to RFID)", padding="10")
-        tx_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        tx_frame.grid(row=0, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         tab.columnconfigure(0, weight=1)
+        tab.rowconfigure(0, weight=1)
 
         ttk.Label(tx_frame, text="Hex Data (max 80 chars = 40 bytes):").pack(anchor=tk.W)
-        self.tunnel_tx_var = tk.StringVar(value="50 00 05 22 01 00 CRC")
-        self.tunnel_tx_entry = ttk.Entry(tx_frame, textvariable=self.tunnel_tx_var, width=80, font=("Courier", 9))
-        self.tunnel_tx_entry.pack(fill=tk.X, pady=2)
+        self.tunnel_tx_display = scrolledtext.ScrolledText(tx_frame, width=80, height=6, font=("Courier", 9))
+        self.tunnel_tx_display.pack(fill=tk.BOTH, expand=True, pady=2)
+        self.tunnel_tx_display.insert(tk.END, "50 00 05 22 01 00 CRC")
 
         # TX buttons
         tx_btn_frame = ttk.Frame(tx_frame)
         tx_btn_frame.pack(fill=tk.X, pady=5)
         ttk.Button(tx_btn_frame, text="Send to RFID", command=self.tunnel_send_data).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(tx_btn_frame, text="Clear TX", command=lambda: self.tunnel_tx_var.set("")).pack(side=tk.LEFT, padx=5)
-        
+        ttk.Button(tx_btn_frame, text="Clear TX", command=lambda: self.tunnel_tx_display.delete(1.0, tk.END)).pack(side=tk.LEFT, padx=5)
+
         # Common RFID commands dropdown
         ttk.Label(tx_btn_frame, text="Quick Commands:").pack(side=tk.LEFT, padx=(20, 5))
         self.quick_cmd_var = tk.StringVar()
         quick_cmds = ttk.Combobox(tx_btn_frame, textvariable=self.quick_cmd_var, width=25, state="readonly")
         quick_cmds['values'] = (
-            "Get UID: 50 00 05 22 01 00 E3 19",
-            "Get Version: 50 00 05 20 00 00 21 19", 
-            "Read Block 4: 50 00 06 17 04 00 62 D9",
-            "LED Blue: 50 00 05 16 00 00 A0 D9",
-            "LED Off: 50 00 05 19 00 00 F3 19"
+            "Get UID: 50 00 02 22 10 26 46",
+            "Get Version: 50 00 00 04 54",
+            "LED Blue: 50 00 03 03 FF 07 04 AC",
+            "LED Grün: 50 00 03 03 FF 07 01 A9",
+            "LED Off: 50 00 03 03 FF 07 00 A8"
         )
         quick_cmds.pack(side=tk.LEFT, padx=5)
         ttk.Button(tx_btn_frame, text="Use", command=self.use_quick_command).pack(side=tk.LEFT, padx=(5, 0))
 
-        # RX Data frame  
+        # RX Data frame
         rx_frame = ttk.LabelFrame(tab, text="RX Data (Response from RFID)", padding="10")
-        rx_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
-        tab.rowconfigure(2, weight=1)
+        rx_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        tab.rowconfigure(1, weight=1)  # Same weight as TX frame
 
         # RX display
-        self.tunnel_rx_display = scrolledtext.ScrolledText(rx_frame, width=80, height=8, font=("Courier", 9))
+        self.tunnel_rx_display = scrolledtext.ScrolledText(rx_frame, width=80, height=6, font=("Courier", 9))
         self.tunnel_rx_display.pack(fill=tk.BOTH, expand=True, pady=2)
 
         # RX buttons
-        rx_btn_frame = ttk.Frame(rx_frame) 
-        rx_btn_frame.pack(fill=tk.X, pady=5)
+        rx_btn_frame = ttk.Frame(rx_frame)
+        rx_btn_frame.pack(fill=tk.X, pady=(5, 0), side=tk.BOTTOM)
         ttk.Button(rx_btn_frame, text="Read Response", command=self.tunnel_read_response).pack(side=tk.LEFT, padx=(0, 5))
         ttk.Button(rx_btn_frame, text="Clear RX", command=self.clear_tunnel_rx).pack(side=tk.LEFT, padx=5)
 
-        # Status frame
-        status_frame = ttk.LabelFrame(tab, text="Status", padding="10") 
-        status_frame.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        
+        # Status frame (kompakter)
+        status_frame = ttk.LabelFrame(tab, text="Status", padding="5")
+        status_frame.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(5, 0))
+
         status_info_frame = ttk.Frame(status_frame)
         status_info_frame.pack(fill=tk.X)
-        
+
         ttk.Label(status_info_frame, text="TX Length:").pack(side=tk.LEFT)
         self.tunnel_tx_len_var = tk.StringVar(value="0")
         ttk.Label(status_info_frame, textvariable=self.tunnel_tx_len_var, width=6).pack(side=tk.LEFT, padx=(5, 20))
-        
+
         ttk.Label(status_info_frame, text="RX Length:").pack(side=tk.LEFT)
-        self.tunnel_rx_len_var = tk.StringVar(value="0") 
+        self.tunnel_rx_len_var = tk.StringVar(value="0")
         ttk.Label(status_info_frame, textvariable=self.tunnel_rx_len_var, width=6).pack(side=tk.LEFT, padx=(5, 20))
-        
-        ttk.Label(status_info_frame, text="Function Block:").pack(side=tk.LEFT)
-        self.tunnel_fb_var = tk.StringVar(value="?")
-        ttk.Label(status_info_frame, textvariable=self.tunnel_fb_var, width=6).pack(side=tk.LEFT, padx=5)
+
 
     def create_manual_tab(self, notebook):
         tab = ttk.Frame(notebook)
@@ -1541,10 +1578,10 @@ class RfidModbusTestGUI:
             self.uid_length_var.set(str(uid_length))
 
             # Parse UID (up to 10 bytes from registers 2011-2015)
-            uid_bytes = []
-            for i in range(1, 6):  # Registers 2011-2015
-                uid_bytes.append((regs[i] >> 8) & 0xFF)
-                uid_bytes.append(regs[i] & 0xFF)
+            # Extract UID registers (2011-2015)
+            uid_registers = regs[1:6]  # 5 registers containing up to 10 bytes
+            # Convert registers to bytes using central function
+            uid_bytes = self.registers_to_bytes(uid_registers)
 
             # Format UID based on length
             if uid_length > 0:
@@ -1596,11 +1633,8 @@ class RfidModbusTestGUI:
             # Read 17 registers (0x22 = 34 bytes) for version string as per spec
             regs = self.modbus_read_registers(2030, 17)
 
-            # Convert registers to bytes (34 bytes total)
-            version_bytes = []
-            for reg in regs:
-                version_bytes.append((reg >> 8) & 0xFF)
-                version_bytes.append(reg & 0xFF)
+            # Convert registers to bytes using ASCII function for version string (34 bytes total)
+            version_bytes = self.registers_to_ascii_bytes(regs)
 
             # Convert to string, handling mixed ASCII and binary data
             version_parts = []
@@ -1647,11 +1681,8 @@ class RfidModbusTestGUI:
             # Read Key A (registers 1010-1012, 3 registers = 6 bytes)
             key_a_regs = self.modbus_read_registers(1010, 3)
 
-            # Convert Key A registers to hex string
-            key_a_bytes = []
-            for reg in key_a_regs:
-                key_a_bytes.append((reg >> 8) & 0xFF)
-                key_a_bytes.append(reg & 0xFF)
+            # Convert Key A registers to bytes using central function
+            key_a_bytes = self.registers_to_bytes(key_a_regs, 6)
             key_a_hex = ''.join([f'{b:02X}' for b in key_a_bytes])
 
             # Update the GUI field
@@ -1674,11 +1705,8 @@ class RfidModbusTestGUI:
             # Read Key B (registers 1013-1015, 3 registers = 6 bytes)
             key_b_regs = self.modbus_read_registers(1013, 3)
 
-            # Convert Key B registers to hex string
-            key_b_bytes = []
-            for reg in key_b_regs:
-                key_b_bytes.append((reg >> 8) & 0xFF)
-                key_b_bytes.append(reg & 0xFF)
+            # Convert Key B registers to bytes using central function
+            key_b_bytes = self.registers_to_bytes(key_b_regs, 6)
             key_b_hex = ''.join([f'{b:02X}' for b in key_b_bytes])
 
             # Update the GUI field
@@ -1718,12 +1746,8 @@ class RfidModbusTestGUI:
                 raise ValueError("Key A must be 6 bytes (12 hex characters)")
             key_a_bytes = bytes.fromhex(key_a_hex)
 
-            # Convert to registers (3 registers)
-            key_a_regs = [
-                (key_a_bytes[0] << 8) | key_a_bytes[1],
-                (key_a_bytes[2] << 8) | key_a_bytes[3],
-                (key_a_bytes[4] << 8) | key_a_bytes[5]
-            ]
+            # Convert bytes to registers using central function
+            key_a_regs = self.bytes_to_registers(key_a_bytes)
 
             # Write Key A (registers 1010-1012)
             self.modbus_write_registers(1010, key_a_regs)
@@ -1747,12 +1771,8 @@ class RfidModbusTestGUI:
                 raise ValueError("Key B must be 6 bytes (12 hex characters)")
             key_b_bytes = bytes.fromhex(key_b_hex)
 
-            # Convert to registers (3 registers)
-            key_b_regs = [
-                (key_b_bytes[0] << 8) | key_b_bytes[1],
-                (key_b_bytes[2] << 8) | key_b_bytes[3],
-                (key_b_bytes[4] << 8) | key_b_bytes[5]
-            ]
+            # Convert bytes to registers using central function
+            key_b_regs = self.bytes_to_registers(key_b_bytes)
 
             # Write Key B (registers 1013-1015)
             self.modbus_write_registers(1013, key_b_regs)
@@ -1847,12 +1867,11 @@ class RfidModbusTestGUI:
 
         # IO Link Device ID (Registers 44-45) - 3 bytes (special handling)
         if all(reg in data for reg in range(44, 46)):
-            # Extract 3 bytes from 2 registers
-            reg1, reg2 = data[44], data[45]
-            byte1 = (reg1 >> 8) & 0xFF
-            byte2 = reg1 & 0xFF
-            byte3 = (reg2 >> 8) & 0xFF
-            iolink_id = f"0x{byte1:02X}{byte2:02X}{byte3:02X}"
+            # Extract 3 bytes from 2 registers using central function
+            id_regs = [data[44], data[45]]
+            id_bytes = self.registers_to_bytes(id_regs)
+            # Only use first 3 bytes for the IO Link ID
+            iolink_id = f"0x{id_bytes[0]:02X}{id_bytes[1]:02X}{id_bytes[2]:02X}"
             self.iolink_id_var.set(iolink_id)
 
         # System Firmware Version (Registers 46-53) - 16 bytes ASCII
@@ -1882,20 +1901,14 @@ class RfidModbusTestGUI:
 
     def register_to_ascii(self, registers):
         """Convert list of 16-bit registers to ASCII string"""
+        # Convert registers to bytes using ASCII-specific function (High-Low order)
+        bytes_data = self.registers_to_ascii_bytes(registers)
+
         ascii_chars = []
-        for reg in registers:
-            # Each register contains 2 bytes (high byte, low byte)
-            high_byte = (reg >> 8) & 0xFF
-            low_byte = reg & 0xFF
-
+        for byte_val in bytes_data:
             # Convert to ASCII, replace non-printable chars with spaces
-            if 32 <= high_byte <= 126:
-                ascii_chars.append(chr(high_byte))
-            else:
-                ascii_chars.append(' ')
-
-            if 32 <= low_byte <= 126:
-                ascii_chars.append(chr(low_byte))
+            if 32 <= byte_val <= 126:
+                ascii_chars.append(chr(byte_val))
             else:
                 ascii_chars.append(' ')
 
@@ -1943,11 +1956,8 @@ class RfidModbusTestGUI:
             # Read block data (registers 1018-1025, 8 registers = 16 bytes)
             regs = self.modbus_read_registers(1018, 8)
 
-            # Convert to hex string
-            block_bytes = []
-            for reg in regs:
-                block_bytes.append((reg >> 8) & 0xFF)
-                block_bytes.append(reg & 0xFF)
+            # Convert registers to bytes using central function
+            block_bytes = self.registers_to_bytes(regs, 16)
 
             hex_str = ''.join([f'{b:02X}' for b in block_bytes])
             self.block_data_var.set(hex_str)
@@ -2047,11 +2057,8 @@ class RfidModbusTestGUI:
 
             block_bytes = bytes.fromhex(block_hex)
 
-            # Convert to registers (8 registers = 16 bytes)
-            block_regs = []
-            for i in range(0, 16, 2):
-                reg = (block_bytes[i] << 8) | block_bytes[i + 1]
-                block_regs.append(reg)
+            # Convert bytes to registers using central function
+            block_regs = self.bytes_to_registers(block_bytes)
 
             # Write block number with key selection
             # Low byte: block number, High byte bit 0: key selection (0=Key A, 1=Key B)
