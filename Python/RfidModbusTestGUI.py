@@ -350,13 +350,16 @@ class RfidModbusTestGUI:
         # Tab 3: MIFARE Operations
         self.create_mifare_tab(notebook)
 
-        # Tab 4: Tunnel Mode (Funktionsbaustein 3)
+        # Tab 4: LED Control (Funktionsbaustein 2)
+        self.create_led_tab(notebook)
+
+        # Tab 5: Tunnel Mode (Funktionsbaustein 3)
         self.create_tunnel_tab(notebook)
 
-        # Tab 5: Manual Register Access
+        # Tab 6: Manual Register Access
         self.create_manual_tab(notebook)
 
-        # Tab 6: Log
+        # Tab 7: Log
         self.create_log_tab(notebook)
 
         # Raw Modbus Data Panel (collapsible)
@@ -857,6 +860,56 @@ class RfidModbusTestGUI:
         self.block_display.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         data_frame.rowconfigure(0, weight=1)
         data_frame.columnconfigure(0, weight=1)
+
+    def create_led_tab(self, notebook):
+        """Create LED Control tab (Funktionsbaustein 2)"""
+        tab = ttk.Frame(notebook)
+        notebook.add(tab, text="LED Control (FB2)")
+
+        # Main LED Control frame
+        main_led_frame = ttk.LabelFrame(tab, text="External LED Ring Control (LR22K5DUO_BG_619)", padding="15")
+        main_led_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), padx=10, pady=10)
+        tab.columnconfigure(0, weight=1)
+
+        # LED Control Settings
+        settings_frame = ttk.LabelFrame(main_led_frame, text="LED Settings", padding="15")
+        settings_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=10)
+        
+        # Make sure the settings frame expands properly
+        settings_frame.columnconfigure(1, weight=1)
+
+        # LED Selection
+        ttk.Label(settings_frame, text="LED Color:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky=tk.W, padx=(5, 15), pady=10)
+        self.led_selection_var = tk.StringVar(value="Off")
+        led_combo = ttk.Combobox(settings_frame, textvariable=self.led_selection_var, width=20, state="readonly", font=("Arial", 10))
+        led_combo['values'] = ("Off", "Grün", "Blau", "Türkis")
+        led_combo.grid(row=0, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
+
+        # LED Duration - Mit mehr Abstand und größerer Combobox
+        ttk.Label(settings_frame, text="Duration:", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky=tk.W, padx=(5, 15), pady=10)
+        self.led_duration_var = tk.StringVar(value="Dauerlicht")
+        duration_combo = ttk.Combobox(settings_frame, textvariable=self.led_duration_var, width=20, state="readonly", font=("Arial", 10))
+        
+        # Erweiterte Duration-Auswahl in 50ms Schritten
+        duration_values = []
+        for i in range(1, 21):  # 1-20 entspricht 50ms-1000ms
+            duration_values.append(f"{i*50}ms")
+        duration_values.extend(["1.5s", "2s", "2.5s", "3s", "5s", "10s", "Dauerlicht"])
+        duration_combo['values'] = tuple(duration_values)
+        duration_combo.grid(row=1, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
+        
+        # Debug: Print values to console and log  
+        print(f"DEBUG: Duration combo created with {len(duration_values)} values")
+        print(f"DEBUG: First 5 values: {duration_values[:5]}")
+        print(f"DEBUG: Last 5 values: {duration_values[-5:]}")
+        
+        # Control buttons
+        btn_frame = ttk.Frame(settings_frame)
+        btn_frame.grid(row=2, column=0, columnspan=2, pady=15)
+
+        ttk.Button(btn_frame, text="Set LED", command=self.control_external_led, 
+                   style="Accent.TButton").pack(side=tk.LEFT, padx=(0, 10))
+        ttk.Button(btn_frame, text="LED Off", command=self.led_off_quick).pack(side=tk.LEFT, padx=5)
 
     def create_tunnel_tab(self, notebook):
         """Create Tunnel Mode tab (Funktionsbaustein 3)"""
@@ -2080,6 +2133,88 @@ class RfidModbusTestGUI:
             # Override success message if there was an error
             if last_error and last_error != 0:
                 self.show_error(f"Block {block_num} written but with error: 0x{last_error:04X}")
+
+    def control_external_led(self):
+        """Control external LED via registers 1027-1028 (nur FB2)"""
+        self.clear_error()
+        if not self.check_connection():
+            return
+
+        try:
+            # Get LED selection and duration values
+            led_selection = self.led_selection_var.get()
+            led_duration = self.led_duration_var.get()
+
+            # Map LED selection to register values (from documentation)
+            led_selection_map = {
+                "Off": 0x00,      # Alle LEDs AUS
+                "Grün": 0x01,     # Grün
+                "Blau": 0x04,     # Blau  
+                "Türkis": 0x05    # Mischfarbe Blau/Grün
+            }
+
+            # Map duration to register values (50ms steps)
+            if led_duration == "Dauerlicht":
+                duration_value = 0xFF
+            elif led_duration.endswith("ms"):
+                # Extract number from strings like "50ms", "100ms", etc.
+                duration_ms = int(led_duration.replace("ms", ""))
+                duration_value = duration_ms // 50  # Convert to 50ms steps
+            elif led_duration.endswith("s"):
+                # Handle seconds values like "1.5s", "2s", etc.
+                duration_s = float(led_duration.replace("s", ""))
+                duration_ms = int(duration_s * 1000)
+                duration_value = min(duration_ms // 50, 254)  # Cap at 254 (0xFE)
+            else:
+                duration_value = 0xFF  # Default to Dauerlicht for unknown values
+
+            # Build register values according to documentation:
+            # Register 1027 Low: LED Duration
+            # Register 1027 High: LED Enable (0x07)
+            # Register 1028 Low: LED Selection
+            # Register 1028 High: Unused (0x00)
+            reg1027_value = duration_value | (0x07 << 8)  # Duration in low byte, Enable=0x07 in high byte
+            reg1028_value = led_selection_map[led_selection]  # Selection in low byte, high byte=0x00
+
+            self.log(f"Setting LED: {led_selection}, Duration: {led_duration}")
+            self.log(f"Duration value: {duration_value} (0x{duration_value:02X}) = {duration_value * 50}ms")
+            self.log(f"Register values: 1027=0x{reg1027_value:04X}, 1028=0x{reg1028_value:04X}")
+
+            # Use Multi-Register Write (FC16) as required by documentation
+            # MUST write both registers together as WriteSequence
+            self.modbus_write_registers(1027, [reg1027_value, reg1028_value])
+
+            self.show_success(f"LED set to {led_selection} with {led_duration}")
+
+        except Exception as e:
+            self.handle_error(e, "Control External LED")
+
+    def led_off_quick(self):
+        """Quick function to turn off LED - sends LED Off telegram but keeps dropdown selection"""
+        self.clear_error()
+        if not self.check_connection():
+            return
+
+        try:
+            # For LED Off, always use Dauerlicht (0xFF) regardless of duration dropdown
+            duration_value = 0xFF
+
+            # Always send LED Off (0x00) with Dauerlicht duration
+            reg1027_value = duration_value | (0x07 << 8)  # Dauerlicht (0xFF) + Enable (0x07)
+            reg1028_value = 0x00  # LED Off selection
+
+            self.log(f"LED Off command (keeping GUI selection: {self.led_selection_var.get()})")
+            self.log(f"Duration: Dauerlicht (0xFF), Selection: Off (0x00)")
+            self.log(f"Register values: 1027=0x{reg1027_value:04X}, 1028=0x{reg1028_value:04X}")
+            self.log(f"Expected RFID telegram: 50 00 03 03 FF 07 00 A8")
+
+            # Send LED Off command
+            self.modbus_write_registers(1027, [reg1027_value, reg1028_value])
+
+            self.show_success("LED turned off")
+
+        except Exception as e:
+            self.handle_error(e, "LED Off Quick")
 
     def manual_read(self):
         """Manual read of Modbus registers"""
