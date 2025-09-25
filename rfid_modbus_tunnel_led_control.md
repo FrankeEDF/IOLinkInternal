@@ -38,10 +38,10 @@ note right of PC
   
   Register mapping:
   - 2200: 0x0008 (Length = 8)
-  - 2201: 0x0050 (bytes: 0x50, 0x00)
+  - 2201: 0x5000 (bytes: 0x50, 0x00)
   - 2202: 0x0303 (bytes: 0x03, 0x03)
-  - 2203: 0xFF07 (bytes: 0xFF, 0x07)
-  - 2204: 0x01A9 (bytes: 0x01, 0xA9)
+  - 2203: 0x07FF (bytes: 0x07, 0xFF)
+  - 2204: 0xA901 (bytes: 0xA9, 0x01)
   
   Converted to UART command:
   0x50 00 03 03 FF 07 01 A9
@@ -90,7 +90,7 @@ end note
 
 === Example: Set LED to Blue ===
 
-PC -> FW: **Modbus Write Multiple Registers**\nFunc: 0x10\nAddr: 2200\nCount: 5 registers\nData: [0x0008, 0x0050, 0x0303, 0xFF07, 0x04AC]
+PC -> FW: **Modbus Write Multiple Registers**\nFunc: 0x10\nAddr: 2200\nCount: 5 registers\nData: [0x0008, 0x5000, 0x0303, 0x07FF, 0xAC04]
 
 group Direct UART Transmission
     FW -> RFID: **LED Control Command**\n0x50 00 03 03 FF 07 04 AC
@@ -102,7 +102,7 @@ FW --> PC: Modbus Response
 
 === Example: Turn LED Off ===
 
-PC -> FW: **Modbus Write Multiple Registers**\nFunc: 0x10\nAddr: 2200\nCount: 5 registers\nData: [0x0008, 0x0050, 0x0303, 0xFF07, 0x00A8]
+PC -> FW: **Modbus Write Multiple Registers**\nFunc: 0x10\nAddr: 2200\nCount: 5 registers\nData: [0x0008, 0x5000, 0x0303, 0x07FF, 0xA800]
 
 group Direct UART Transmission
     FW -> RFID: **LED Control Command**\n0x50 00 03 03 FF 07 00 A8
@@ -204,10 +204,10 @@ When writing to Modbus registers (16-bit), bytes must be paired in Big-Endian fo
 
 Example for command `0x50 00 03 03 FF 07 01 A9`:
 - Register 2200: 0x0008 (Length = 8 bytes)
-- Register 2201: 0x0050 → bytes [0x50, 0x00]
-- Register 2202: 0x0303 → bytes [0x03, 0x03]  
-- Register 2203: 0xFF07 → bytes [0xFF, 0x07]
-- Register 2204: 0x01A9 → bytes [0x01, 0xA9]
+- Register 2201: 0x5000 → bytes [0x50, 0x00]
+- Register 2202: 0x0303 → bytes [0x03, 0x03]
+- Register 2203: 0x07FF → bytes [0x07, 0xFF]
+- Register 2204: 0xA901 → bytes [0xA9, 0x01]
 
 The register values are formed by: (byte_n << 8) | byte_n+1
 
