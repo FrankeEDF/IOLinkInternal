@@ -5,6 +5,8 @@ Testing tool for RFID functions over Modbus RTU communication
 Based on ModbusSpecRFID_Add.md specification
 """
 
+VERSION = "1.0.0"
+
 import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
@@ -44,7 +46,7 @@ class LoggingModbusClient(ModbusSerialClient):
 class RfidModbusTestGUI:
     def __init__(self, root):
         self.root = root
-        self.root.title("RFID Modbus Test GUI")
+        self.root.title(f"RFID Modbus Test GUI V{VERSION}")
         self.root.geometry("1200x900")
 
         # Modbus client
@@ -1613,9 +1615,6 @@ class RfidModbusTestGUI:
 
         # Auto-clear after 3 seconds
         self.error_clear_timer = self.root.after(3000, self.clear_error)
-
-        # Restore red color for errors
-        self.root.after(3100, lambda: self.error_label.config(foreground="red"))
 
     def read_tag_info(self):
         """Read tag information from registers 2010-2017"""

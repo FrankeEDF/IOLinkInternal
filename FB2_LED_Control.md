@@ -1,4 +1,4 @@
-LED-Steuerung in FB2
+# LED-Steuerung in FB2
 
   Voraussetzung: Register 1009 = 2 (FB2 aktivieren)
 
@@ -11,11 +11,11 @@ LED-Steuerung in FB2
     - High Byte: 0x00 (unbenutzt)
 
   Beispiele:
-  - Gr�n dauerhaft: Schreibe [0xFF, 0x07, 0x01, 0x00] auf Register 1027-1028
+  - Grün dauerhaft: Schreibe [0xFF, 0x07, 0x01, 0x00] auf Register 1027-1028
   - Blau dauerhaft: Schreibe [0xFF, 0x07, 0x04, 0x00] auf Register 1027-1028
   - LEDs aus: Schreibe [0xFF, 0x07, 0x00, 0x00] auf Register 1027-1028
 
-  Beispiel als 16-Bit Modbus Register-Werte (LED = Blau):
+## Beispiel als 16-Bit Modbus Register-Werte (LED = Blau):
   - Register 1027: 0x07FF (High Byte: 0x07, Low Byte: 0xFF)
   - Register 1028: 0x0004 (High Byte: 0x00, Low Byte: 0x04)
 
