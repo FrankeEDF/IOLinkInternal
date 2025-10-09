@@ -10,3 +10,4 @@ dist
 /rfid_modbus_sequence_write_block.pdf
 /rfid_modbus_tunnel_led_control.pdf
 /FB2_LED_Control.pdf
+CHANGELOG_*.md
