@@ -11,6 +11,9 @@ import tkinter as tk
 from tkinter import ttk, scrolledtext
 import threading
 import time
+import os
+import re
+import html
 from datetime import datetime
 from pymodbus.client.sync import ModbusSerialClient
 from pymodbus.constants import Endian
@@ -59,6 +62,9 @@ class RfidModbusTestGUI:
         self.raw_logging_enabled = False
         self.raw_data_buffer = []
         self.max_raw_buffer_size = 1000  # Max lines to keep in buffer
+        self.last_decoded_message = ""
+        self.last_decoded_tx = ""
+        self.last_decoded_rx = ""
 
         # RTU frame assembly for raw data
         self.rx_frame_buffer = bytearray()
@@ -218,8 +224,8 @@ class RfidModbusTestGUI:
         """
         byte_array = []
         for reg in registers:
-            byte_array.append(reg & 0xFF)          # Low byte first
-            byte_array.append((reg >> 8) & 0xFF)   # High byte second
+            byte_array.append(reg & 0xFF)  # Low byte first
+            byte_array.append((reg >> 8) & 0xFF)  # High byte second
 
         # Trim to specified byte count if provided
         if byte_count is not None:
@@ -243,8 +249,8 @@ class RfidModbusTestGUI:
         """
         byte_array = []
         for reg in registers:
-            byte_array.append((reg >> 8) & 0xFF)   # High byte first for ASCII
-            byte_array.append(reg & 0xFF)          # Low byte second
+            byte_array.append((reg >> 8) & 0xFF)  # High byte first for ASCII
+            byte_array.append(reg & 0xFF)  # Low byte second
 
         # Trim to specified byte count if provided
         if byte_count is not None:
@@ -488,7 +494,6 @@ class RfidModbusTestGUI:
             # First register is RX Length
             rx_length = rx_all[0]
             self.tunnel_rx_len_var.set(str(rx_length))
-
 
             if rx_length == 0:
                 self.tunnel_rx_display.insert(tk.END, "No response data available\n")
@@ -876,40 +881,44 @@ class RfidModbusTestGUI:
         # LED Control Settings
         settings_frame = ttk.LabelFrame(main_led_frame, text="LED Settings", padding="15")
         settings_frame.grid(row=0, column=0, sticky=(tk.W, tk.E), pady=10)
-        
+
         # Make sure the settings frame expands properly
         settings_frame.columnconfigure(1, weight=1)
 
         # LED Selection
-        ttk.Label(settings_frame, text="LED Color:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky=tk.W, padx=(5, 15), pady=10)
+        ttk.Label(settings_frame, text="LED Color:", font=("Arial", 10, "bold")).grid(row=0, column=0, sticky=tk.W,
+                                                                                      padx=(5, 15), pady=10)
         self.led_selection_var = tk.StringVar(value="Off")
-        led_combo = ttk.Combobox(settings_frame, textvariable=self.led_selection_var, width=20, state="readonly", font=("Arial", 10))
+        led_combo = ttk.Combobox(settings_frame, textvariable=self.led_selection_var, width=20, state="readonly",
+                                 font=("Arial", 10))
         led_combo['values'] = ("Off", "Grün", "Blau", "Türkis")
         led_combo.grid(row=0, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
 
         # LED Duration - Mit mehr Abstand und größerer Combobox
-        ttk.Label(settings_frame, text="Duration:", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky=tk.W, padx=(5, 15), pady=10)
+        ttk.Label(settings_frame, text="Duration:", font=("Arial", 10, "bold")).grid(row=1, column=0, sticky=tk.W,
+                                                                                     padx=(5, 15), pady=10)
         self.led_duration_var = tk.StringVar(value="Dauerlicht")
-        duration_combo = ttk.Combobox(settings_frame, textvariable=self.led_duration_var, width=20, state="readonly", font=("Arial", 10))
-        
+        duration_combo = ttk.Combobox(settings_frame, textvariable=self.led_duration_var, width=20, state="readonly",
+                                      font=("Arial", 10))
+
         # Erweiterte Duration-Auswahl in 50ms Schritten
         duration_values = []
         for i in range(1, 21):  # 1-20 entspricht 50ms-1000ms
-            duration_values.append(f"{i*50}ms")
+            duration_values.append(f"{i * 50}ms")
         duration_values.extend(["1.5s", "2s", "2.5s", "3s", "5s", "10s", "Dauerlicht"])
         duration_combo['values'] = tuple(duration_values)
         duration_combo.grid(row=1, column=1, padx=10, pady=10, sticky=(tk.W, tk.E))
-        
-        # Debug: Print values to console and log  
+
+        # Debug: Print values to console and log
         print(f"DEBUG: Duration combo created with {len(duration_values)} values")
         print(f"DEBUG: First 5 values: {duration_values[:5]}")
         print(f"DEBUG: Last 5 values: {duration_values[-5:]}")
-        
+
         # Control buttons
         btn_frame = ttk.Frame(settings_frame)
         btn_frame.grid(row=2, column=0, columnspan=2, pady=15)
 
-        ttk.Button(btn_frame, text="Set LED", command=self.control_external_led, 
+        ttk.Button(btn_frame, text="Set LED", command=self.control_external_led,
                    style="Accent.TButton").pack(side=tk.LEFT, padx=(0, 10))
         ttk.Button(btn_frame, text="LED Off", command=self.led_off_quick).pack(side=tk.LEFT, padx=5)
 
@@ -927,13 +936,14 @@ class RfidModbusTestGUI:
         ttk.Label(tx_frame, text="Hex Data (max 80 chars = 40 bytes):").pack(anchor=tk.W)
         self.tunnel_tx_display = scrolledtext.ScrolledText(tx_frame, width=80, height=6, font=("Courier", 9))
         self.tunnel_tx_display.pack(fill=tk.BOTH, expand=True, pady=2)
-        self.tunnel_tx_display.insert(tk.END, "50 00 05 22 01 00 CRC")
+        self.tunnel_tx_display.insert(tk.END, "50 00 05 22 01 00")
 
         # TX buttons
         tx_btn_frame = ttk.Frame(tx_frame)
         tx_btn_frame.pack(fill=tk.X, pady=5)
         ttk.Button(tx_btn_frame, text="Send to RFID", command=self.tunnel_send_data).pack(side=tk.LEFT, padx=(0, 5))
-        ttk.Button(tx_btn_frame, text="Clear TX", command=lambda: self.tunnel_tx_display.delete(1.0, tk.END)).pack(side=tk.LEFT, padx=5)
+        ttk.Button(tx_btn_frame, text="Clear TX", command=lambda: self.tunnel_tx_display.delete(1.0, tk.END)).pack(
+            side=tk.LEFT, padx=5)
 
         # Common RFID commands dropdown
         ttk.Label(tx_btn_frame, text="Quick Commands:").pack(side=tk.LEFT, padx=(20, 5))
@@ -961,7 +971,8 @@ class RfidModbusTestGUI:
         # RX buttons
         rx_btn_frame = ttk.Frame(rx_frame)
         rx_btn_frame.pack(fill=tk.X, pady=(5, 0), side=tk.BOTTOM)
-        ttk.Button(rx_btn_frame, text="Read Response", command=self.tunnel_read_response).pack(side=tk.LEFT, padx=(0, 5))
+        ttk.Button(rx_btn_frame, text="Read Response", command=self.tunnel_read_response).pack(side=tk.LEFT,
+                                                                                               padx=(0, 5))
         ttk.Button(rx_btn_frame, text="Clear RX", command=self.clear_tunnel_rx).pack(side=tk.LEFT, padx=5)
 
         # Status frame (kompakter)
@@ -978,7 +989,6 @@ class RfidModbusTestGUI:
         ttk.Label(status_info_frame, text="RX Length:").pack(side=tk.LEFT)
         self.tunnel_rx_len_var = tk.StringVar(value="0")
         ttk.Label(status_info_frame, textvariable=self.tunnel_rx_len_var, width=6).pack(side=tk.LEFT, padx=(5, 20))
-
 
     def create_manual_tab(self, notebook):
         tab = ttk.Frame(notebook)
@@ -1090,15 +1100,17 @@ class RfidModbusTestGUI:
 
         ttk.Button(control_frame, text="Clear Raw Data",
                    command=self.clear_raw_data).grid(row=0, column=0, padx=5)
+        ttk.Button(control_frame, text="Dokumentation",
+                   command=self.show_documentation_dialog).grid(row=0, column=1, padx=5)
 
         # Display format options
-        ttk.Label(control_frame, text="Display:").grid(row=0, column=1, padx=(20, 5))
+        ttk.Label(control_frame, text="Display:").grid(row=0, column=2, padx=(20, 5))
         self.raw_format_var = tk.StringVar(value="hex")
         format_combo = ttk.Combobox(control_frame, textvariable=self.raw_format_var,
                                     width=15, state="readonly")
-        format_combo['values'] = ('Hex Only', 'Hex + ASCII', 'Hex + Decode')
+        format_combo['values'] = ('Hex Only', 'Hex + ASCII', 'Hex + Decode', 'Decode')
         format_combo.set('Hex + Decode')
-        format_combo.grid(row=0, column=2, padx=5)
+        format_combo.grid(row=0, column=3, padx=5)
         format_combo.bind('<<ComboboxSelected>>', self.refresh_raw_display)
 
         # Raw data display
@@ -1407,10 +1419,19 @@ class RfidModbusTestGUI:
         tag = "tx" if entry['direction'] == 'TX' else "rx"
         self.raw_display.insert(tk.END, f"{entry['direction']}: ", tag)
 
-        # Hex data
-        self.raw_display.insert(tk.END, entry['hex_data'], tag)
+        decoded = self.decode_modbus_frame(entry['raw_bytes'], entry['direction'])
+        if decoded:
+            self.last_decoded_message = decoded
+            if entry['direction'] == 'TX':
+                self.last_decoded_tx = decoded
+            elif entry['direction'] == 'RX':
+                self.last_decoded_rx = decoded
 
         # Additional formatting based on mode
+        if format_mode != 'Decode':
+            # Hex data
+            self.raw_display.insert(tk.END, entry['hex_data'], tag)
+
         if format_mode == 'Hex + ASCII':
             # Add ASCII representation
             ascii_str = ""
@@ -1423,10 +1444,11 @@ class RfidModbusTestGUI:
             self.raw_display.insert(tk.END, f"  |{ascii_str}|", "info")
 
         elif format_mode == 'Hex + Decode':
-            # Try to decode Modbus frame
-            decoded = self.decode_modbus_frame(entry['raw_bytes'], entry['direction'])
             if decoded:
                 self.raw_display.insert(tk.END, f"  | {decoded}", "info")
+        elif format_mode == 'Decode':
+            if decoded:
+                self.raw_display.insert(tk.END, decoded, "info")
 
         self.raw_display.insert(tk.END, "\n")
         self.raw_display.see(tk.END)
@@ -1475,6 +1497,17 @@ class RfidModbusTestGUI:
                     count = (data[4] << 8) | data[5]
                     byte_count = data[6]
                     result += f" Addr:{addr} Count:{count} Bytes:{byte_count}"
+                    data_start = 7
+                    data_end = data_start + byte_count
+                    if data_end <= len(data) - 2 and byte_count >= 2:
+                        regs = []
+                        for i in range(data_start, data_end, 2):
+                            if i + 1 >= data_end:
+                                break
+                            regs.append((data[i] << 8) | data[i + 1])
+                        if regs:
+                            reg_str = ", ".join(f"{reg:04X}" for reg in regs)
+                            result += f" [{reg_str}]"
 
                 result += f" CRC:{crc_status}"
                 return result
@@ -1495,6 +1528,36 @@ class RfidModbusTestGUI:
                 else:
                     crc >>= 1
         return crc
+
+    def _extract_register_address(self, decoded_message):
+        """Extract register address from decoded Modbus message."""
+        if not decoded_message:
+            return None
+        match = re.search(r"Addr:(\d+)", decoded_message)
+        if not match:
+            return None
+        return int(match.group(1))
+
+    def _scroll_to_register(self, html_view, register_address):
+        """Scroll and highlight the first occurrence of the register address."""
+        if register_address is None:
+            return
+        addr_str = str(register_address)
+        node = html_view.html.search(f'#addr-{addr_str}')
+        if not node:
+            return
+        bbox = html_view.html.bbox(node)
+        html_node = html_view.html.search("html")
+        if not bbox or not html_node:
+            return
+        full_bbox = html_view.html.bbox(html_node)
+        if not full_bbox:
+            return
+        total_height = full_bbox[3] - full_bbox[1]
+        if total_height <= 0:
+            return
+        fraction = max(0.0, min(1.0, bbox[1] / total_height))
+        html_view.html.yview_moveto(fraction)
 
     def modbus_read_registers(self, address, count, unit_id=None):
         """Helper function for Modbus read with error handling"""
@@ -1517,6 +1580,62 @@ class RfidModbusTestGUI:
         if result.isError():
             raise Exception(f"Modbus error: {result}")
         return result
+
+    def show_documentation_dialog(self):
+        """Show documentation with the latest decoded message injected."""
+        try:
+            from tkinterweb import HtmlFrame
+            import markdown
+        except Exception as e:
+            self.show_error(f"Markdown-Viewer konnte nicht geladen werden: {e}")
+            return
+
+        doc_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "..", "documentation", "Modbus", "ModbusSpecRFID_Add.md")
+        )
+        try:
+            with open(doc_path, "r", encoding="utf-8", errors="replace") as handle:
+                content = handle.read()
+        except Exception as e:
+            self.show_error(f"Dokumentation konnte nicht gelesen werden: {e}")
+            return
+
+        last_decoded = self.last_decoded_message or "Keine dekodierte Nachricht vorhanden."
+        highlighted_decoded = f"<span style=\"color:#c0392b; font-weight:bold;\">{html.escape(last_decoded)}</span>"
+        rendered = content.replace("{{LAST_DECODED_MESSAGE}}", highlighted_decoded)
+        last_tx = self.last_decoded_tx or "Keine TX-Decode vorhanden."
+        last_rx = self.last_decoded_rx or "Keine RX-Decode vorhanden."
+        highlighted_tx = f"<span style=\"color:#27ae60; font-weight:bold;\">{html.escape(last_tx)}</span>"
+        highlighted_rx = f"<span style=\"color:#2980b9; font-weight:bold;\">{html.escape(last_rx)}</span>"
+        rendered = rendered.replace("{{LAST_DECODED_TX}}", highlighted_tx)
+        rendered = rendered.replace("{{LAST_DECODED_RX}}", highlighted_rx)
+
+        register_address = self._extract_register_address(self.last_decoded_message)
+        if register_address is not None:
+            rendered = rendered.replace(
+                f"Register {register_address}",
+                f"<span id=\"addr-{register_address}\">Register {register_address}</span>",
+                1
+            )
+
+        html_content = markdown.markdown(rendered, extensions=["tables"])
+        style_block = (
+            "<style>"
+            "table{border-collapse:collapse;}"
+            "table,th,td{border:1px solid #444;padding:4px;}"
+            "</style>"
+        )
+        html_content = style_block + html_content
+
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Modbus Dokumentation (mit letzter Decode)")
+        dialog.geometry("900x700")
+
+        html_view = HtmlFrame(dialog, messages_enabled=False)
+        html_view.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+        html_view.load_html(html_content)
+
+        dialog.after(100, lambda: self._scroll_to_register(html_view, register_address))
 
     def modbus_write_registers(self, address, values, unit_id=None):
         """Helper function for multiple register write with error handling"""
@@ -2146,10 +2265,10 @@ class RfidModbusTestGUI:
 
             # Map LED selection to register values (from documentation)
             led_selection_map = {
-                "Off": 0x00,      # Alle LEDs AUS
-                "Grün": 0x01,     # Grün
-                "Blau": 0x04,     # Blau  
-                "Türkis": 0x05    # Mischfarbe Blau/Grün
+                "Off": 0x00,  # Alle LEDs AUS
+                "Grün": 0x01,  # Grün
+                "Blau": 0x04,  # Blau
+                "Türkis": 0x05  # Mischfarbe Blau/Grün
             }
 
             # Map duration to register values (50ms steps)
