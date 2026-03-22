@@ -5,7 +5,7 @@ Testing tool for RFID functions over Modbus RTU communication
 Based on ModbusSpecRFID_Add.md specification
 """
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 
 import tkinter as tk
 from tkinter import ttk, scrolledtext
@@ -56,6 +56,7 @@ class RfidModbusTestGUI:
         self.client = None
         self.connected = False
         self.polling_active = False
+        self.process_polling_active = False
         self.polling_thread = None
 
         # Raw data logging
@@ -349,25 +350,28 @@ class RfidModbusTestGUI:
         notebook.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
         main_frame.rowconfigure(3, weight=3)  # Give more weight to notebook
 
-        # Tab 1: Tag Information
+        # Tab 1: Process Data (Status)
+        self.create_process_data_tab(notebook)
+
+        # Tab 2: Tag Information
         self.create_tag_info_tab(notebook)
 
-        # Tab 2: Basic Data
+        # Tab 3: Basic Data
         self.create_basic_data_tab(notebook)
 
-        # Tab 3: MIFARE Operations
+        # Tab 4: MIFARE Operations
         self.create_mifare_tab(notebook)
 
-        # Tab 4: LED Control (Funktionsbaustein 2)
+        # Tab 5: LED Control (Funktionsbaustein 2)
         self.create_led_tab(notebook)
 
-        # Tab 5: Tunnel Mode (Funktionsbaustein 3)
+        # Tab 6: Tunnel Mode (Funktionsbaustein 3)
         self.create_tunnel_tab(notebook)
 
-        # Tab 6: Manual Register Access
+        # Tab 7: Manual Register Access
         self.create_manual_tab(notebook)
 
-        # Tab 7: Log
+        # Tab 8: Log
         self.create_log_tab(notebook)
 
         # Raw Modbus Data Panel (collapsible)
@@ -550,6 +554,84 @@ class RfidModbusTestGUI:
             self.show_error("Not connected to Modbus device")
             return False
         return True
+
+    def create_process_data_tab(self, notebook):
+        """Create tab for Process Data (Register 2000-2001)"""
+        tab = ttk.Frame(notebook)
+        notebook.add(tab, text="Process Data")
+
+        # Create frame for process data display
+        info_frame = ttk.LabelFrame(tab, text="Process Data Registers (Read-Only)", padding="10")
+        info_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N), padx=5, pady=5)
+
+        # Register 2000: Analog (Poti) Value
+        ttk.Label(info_frame, text="Analog Value (Reg 2000):").grid(row=0, column=0, sticky=tk.W, padx=5, pady=2)
+        self.analog_value_var = tk.StringVar(value="--")
+        ttk.Label(info_frame, textvariable=self.analog_value_var, font=("Courier", 10)).grid(
+            row=0, column=1, sticky=tk.W, padx=5, pady=2
+        )
+
+        # Register 2001: Error Status (OR of all module error bytes)
+        ttk.Label(info_frame, text="Error Status (Reg 2001):").grid(row=1, column=0, sticky=tk.W, padx=5, pady=2)
+        self.error_status_var = tk.StringVar(value="--")
+        ttk.Label(info_frame, textvariable=self.error_status_var, font=("Courier", 10)).grid(
+            row=1, column=1, sticky=tk.W, padx=5, pady=2
+        )
+
+        # Error Status Bits (detailed breakdown)
+        error_bits_frame = ttk.LabelFrame(tab, text="Error Status Bit Breakdown (Reg 2001)", padding="10")
+        error_bits_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N), padx=5, pady=5)
+
+        # Error bit descriptions from ModbusSpec.md
+        error_bit_labels = [
+            "Bit 0: Externer Hardware Error",
+            "Bit 1: IO-Link UART Kommunikationsfehler",
+            "Bit 2: Interner Modbus Kommunikationsfehler",
+            "Bit 3: Adressierfehler der Erweiterungsmodule",
+            "Bit 4: Änderung der Anzahl an Teilnehmer",
+            "Bit 5: LED Fehlermeldung / Ausfall",
+            "Bit 6: Schaltzyklus überschritten",
+            "Bit 7: RFID Kommunikationsfehler"
+        ]
+
+        self.error_bit_vars = []
+        self.error_bit_labels = []
+        for i, label_text in enumerate(error_bit_labels):
+            bit_var = tk.StringVar(value="0")
+            self.error_bit_vars.append(bit_var)
+            # Use tk.Label instead of ttk.Label to allow foreground color changes
+            label = tk.Label(error_bits_frame, text=label_text)
+            label.grid(row=i, column=0, sticky=tk.W, padx=5, pady=1)
+            self.error_bit_labels.append(label)
+            ttk.Label(error_bits_frame, textvariable=bit_var, font=("Courier", 10), width=3).grid(
+                row=i, column=1, sticky=tk.W, padx=5, pady=1
+            )
+
+        # Buttons
+        btn_frame = ttk.Frame(tab)
+        btn_frame.grid(row=2, column=0, sticky=(tk.W, tk.E), padx=5, pady=10)
+
+        ttk.Button(btn_frame, text="Read Process Data", command=self.read_process_data).grid(
+            row=0, column=0, padx=5
+        )
+        ttk.Button(btn_frame, text="Clear", command=self.clear_process_data).grid(
+            row=0, column=1, padx=5
+        )
+
+        # Auto-polling controls for process data
+        poll_frame = ttk.LabelFrame(tab, text="Automatic Polling", padding="10")
+        poll_frame.grid(row=3, column=0, sticky=(tk.W, tk.E), padx=5, pady=10)
+
+        self.process_poll_var = tk.BooleanVar(value=False)
+        self.process_poll_check = ttk.Checkbutton(poll_frame, text="Auto-poll process data",
+                                          variable=self.process_poll_var, command=self.toggle_process_polling)
+        self.process_poll_check.grid(row=0, column=0, padx=5)
+
+        ttk.Label(poll_frame, text="Poll interval (ms):").grid(row=0, column=1, padx=5)
+        self.process_poll_interval_var = tk.IntVar(value=500)
+        poll_spin = ttk.Spinbox(poll_frame, from_=100, to=5000, increment=100,
+                                textvariable=self.process_poll_interval_var, width=10)
+        poll_spin.grid(row=0, column=2, padx=5)
 
     def create_tag_info_tab(self, notebook):
         tab = ttk.Frame(notebook)
@@ -1251,6 +1333,12 @@ class RfidModbusTestGUI:
                 self.poll_var.set(False)
                 self.log("Stopped polling due to disconnection")
 
+            # Stop process data polling if active
+            if self.process_polling_active:
+                self.process_polling_active = False
+                self.process_poll_var.set(False)
+                self.log("Stopped process data polling due to disconnection")
+
             if self.client:
                 self.client.close()
 
@@ -1793,6 +1881,77 @@ class RfidModbusTestGUI:
         self.atqa_var.set("--")
         self.sak_var.set("--")
         self.tag_type_var.set("--")
+
+    def read_process_data(self):
+        """Read process data from registers 2000-2001"""
+        if not self.check_connection():
+            return
+
+        try:
+            # Read registers 2000-2001 (2 registers)
+            regs = self.modbus_read_registers(2000, 2)
+
+            # Register 2000: Analog (Poti) value - only low byte used
+            analog_value = regs[0] & 0xFF
+            self.analog_value_var.set(f"{analog_value} (0x{analog_value:02X})")
+
+            # Register 2001: Error Status - only low byte used
+            error_status = regs[1] & 0xFF
+            self.error_status_var.set(f"0x{error_status:02X} (0b{error_status:08b})")
+
+            # Update individual error bits and label colors
+            for i in range(8):
+                bit_value = (error_status >> i) & 1
+                self.error_bit_vars[i].set(str(bit_value))
+                # Set label color: red if bit is set (1), black if not set (0)
+                if bit_value == 1:
+                    self.error_bit_labels[i].config(foreground="red")
+                else:
+                    self.error_bit_labels[i].config(foreground="black")
+
+            self.log(f"Process data read: Analog={analog_value}, Error=0x{error_status:02X}")
+
+        except Exception as e:
+            self.handle_error(e, "Read process data")
+
+    def clear_process_data(self):
+        """Clear process data display"""
+        self.clear_error()
+        self.analog_value_var.set("--")
+        self.error_status_var.set("--")
+        for i, bit_var in enumerate(self.error_bit_vars):
+            bit_var.set("0")
+            self.error_bit_labels[i].config(foreground="black")
+
+    def toggle_process_polling(self):
+        """Toggle automatic polling of process data"""
+        if self.process_poll_var.get():
+            self.process_polling_active = True
+            self.poll_process_data()
+            self.log("Process data auto-polling enabled")
+        else:
+            self.process_polling_active = False
+            self.log("Process data auto-polling disabled")
+
+    def poll_process_data(self):
+        """Poll process data at regular intervals"""
+        if self.process_polling_active and self.connected:
+            try:
+                self.read_process_data()
+            except Exception as e:
+                self.log(f"Polling error: {str(e)}")
+                self.disable_process_polling()
+                return
+
+            # Schedule next poll
+            interval = self.process_poll_interval_var.get()
+            self.root.after(interval, self.poll_process_data)
+
+    def disable_process_polling(self):
+        """Disable polling due to error"""
+        self.process_polling_active = False
+        self.process_poll_var.set(False)
+        self.log("Process data auto-polling disabled due to error")
 
     def read_reader_version(self):
         """Read RFID reader software version"""
