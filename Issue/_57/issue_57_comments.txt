@@ -1,0 +1,407 @@
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+Alle Codes werden so an den Reader geschickt. Wenn der Reader nicht das erwartet Verhalten zeigt, **liegt es** am Reader. 
+Bitte einfach die Schnittstelle zum Reader mitlesen ... 
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Aktuell ist in der Dokumentation der Zustand Offline nicht beschrieben. siehe folgende Bildausschnitte.
+rfid_modbus_tunnel_led_control.pdf
+
+<img width="415" height="194" alt="Image" src="https://github.com/user-attachments/assets/da65d0e4-33e8-465c-9fc1-d590b6fbdf98" />
+
+FB2_LED_Control.pdf
+
+<img width="721" height="226" alt="Image" src="https://github.com/user-attachments/assets/ca91a317-b9d6-425a-a4d1-bd1fa4fd298e" />
+
+Wenn Sie mir den steuer Code zusenden dann kann ich diesen testen.
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+Die Steuercodes sind aus dem Datenblatt RFID Reader Dokumentation (Datenblatt_RRJ_RFID_V05_240202.pdf). Die 3 Byte Codes werden in das RFID Telegram gepackt und dann 1:1 so an den Reader geschickt. Die Angaben in Klammern sind lediglich **Beispiele** oder **Hinweise**.  
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+**Zusammensetzung des RFID-Telegramms aus den Registerwerten:**
+
+1. Die Firmware nimmt die 2 Register in der Reihenfolge 1027, 1028.
+2. Daraus werden die Nutzdatenbytes gebildet: `B0 = Reg1027 Low`, `B1 = Reg1027 High`, `B2 = Reg1028 Low`.
+3. Diese 3 Nutzdatenbytes werden in das LED-Telegramm eingesetzt; `Reg1028 High` bleibt 0x00 und wird nicht übertragen.
+4. Die Firmware setzt den Telegramm-Header und berechnet die Checksumme automatisch.
+
+Damit ergibt sich (konzeptionell): `Header(0x50 0x00 0x03 0x03) + B0 B1 B2 + Checksumme`.
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+die Dokumentation wurde entsprechend ergänzt :
+[Zum Abschnitt in der Dok](https://github.com/FrankeEDF/IOLink/blob/master/documentation/Modbus/ModbusSpecRFID_Add.md#:~:text=High%29%3A%20Unbenutzt%20%280x00%29-,Zusammensetzung,-des%20RFID%2DTelegramms)
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Alle von Ihnen oben beschriebene Funktionalität ist so in der Software hinterlegt und funktioniert auch zuverlässig.
+Die Funktion "Offline"  ist jedoch nicht umgesetzt und auch nicht im Dokument beschrieben.
+Die Funktion "Offline" entspricht nicht der Funktion "LED´s off" bei der Funktion Offline werden die Status LED´s über den Reader gesteuert.
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+Doch der Code 0x14 wird so an den Reader weitergegeben. Bitte nachmessen !!!! Wenn der Reader nicht das gewünschte Verhalten zeigt **liegt es am** Reader.
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+Eine Beschreibung ist in der Dokumentation zum RFID Reader selber Datenblatt_RRJ_RFID_V05_240202.pdf
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Der Reader kennt den CODE 0x14 nicht, dieser kommt von der SPS und muss in ihrer Software so aufbereitet werden dass der Reader es versteht so wie es in Ihrer Software bei den Farben über Register 1028 auch umgesetzt wurde. Um aus dem RFID Kommandocode 03 herraus zu kommen muss hier der Code Einzelsenden und Zyklisch senden ausgelöst werden um in den Offline Modus zu kommen. Anschließend übernimmt der Reader die Ansteuerung der LED-Farben.
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+Dann schreiben sie eine passende Spezifikation und ich mache ihnen ein entsprechendes Angebot für diese Sonderfunktion
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+<img width="885" height="430" alt="Image" src="https://github.com/user-attachments/assets/a942fa8c-fc85-4b65-80cb-fa9273f3a1e7" />
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Kann ich so nicht stehen lassen, Siehe Hierzu"Datenblatt_RRJ_RFID_V05_240202" Sie haben die Farben nach Datenblatt implementiert nur nicht die "Offline" Funktion. Dass diese über einen weiteren Befehl ausgeführt werden hätte sollen ist im Datenblatt zum Reader hinterlegt. 
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+In ihrer Spezifikation steht eindeutig: Code 14 wird eigenständig von Reader gehandelt !!!!
+
+<img width="829" height="488" alt="Image" src="https://github.com/user-attachments/assets/e567160c-e1ca-4bff-aa9e-133f5724218a" />
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+**Weder** im Datenblatt "Datenblatt_RRJ_RFID_V05_240202" **noch** in der Spezifikation  Software Spezifikation_RFID to MBS_V03 ist ein LED "Offline" Mode in der Form **beschrieben**, das er von der anderen Ansteuerung der LED abweicht.
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Kann ich so nicht stehen lassen, 
+in der Software Spezifikation_RFID to MBS_V03 sind 5 unterschiedliche Steuercods aus der SPS für die LED Anzeige hinterlegt.
+Bei den 4 Steuercods 0x16 bis 0x19 haben Sie diese nach "Datenblatt_RRJ_RFID_V05_240202" umgesetzt. 
+Es wird bei keiner LED Farbe der Steuercod direckt an den Reader weitergeleitet. Der Hinweis in der Spezifikation sollte Ihnen nur den Unterschied zeigen zwischen "Offline" und "LED OFF". 
+Nun wenn es hier jedoch Verständniss Probleme gab zu diesem Part hätten wir hier auch während der Software Erstellung kurz gemeinsam darüber reden können.  
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+Alle 5 habe ich nach dem selben Muster umgesetzt. die stehen auch in der selben Tabelle. Also falsch in der Spezifikation dargestellt ? 
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Mit welchen RFID Cods arbeiten Sie zum Auslesen der UID, mit Einzelsenden oder Zyklischsenden.
+Es gibt für beide jeweils zwei Kommando Codes. Z.B. "Einzelsenden" und "Einzelsenden mit externer Ansteuerung". 
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+worauf soll das hinauslaufen ?
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+Im FB2 wird die UID mit dem Telegramm Command 0x22 gelesen (readTransponderID). Das passiert beim Lesen der Registers 2010–2017: 
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+zusammengefasst: 
+1) im Datenblatt zum RFID reader ist kein "Offline" Mode beschrieben. 
+2)  Aus der Spezifikation ist nicht erkennbar das beim Code 0x14 was anderes gemacht werde hätte sollen als für die anderen 4 Codes die in der selben Tabelle stehen !!
+3) in der Spezifikation steht ein Hinweis "wird eigenständig vom Reader gehändelt"
+
+Bitte beschreiben sie die gewünschte Änderungen! 
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Über den Kommandocode 23 hätte es gereicht über Byte 9 den Offline Betrieb wieder zu starten, und der Reader übernimmt die Ansteuerung der LED´s. 
+
+Einzelsenden                                                                    ==>  50 00 05 23 FF 01 00 01 **03** CRC
+Einzelsenden ohne LED Ansteuerung über Reader         ==>  50 00 05 23 FF 64 00 01 **00** CRC
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Auszüge aus dem RFID Datenblatt
+
+Einzelsenden
+<img width="790" height="405" alt="Image" src="https://github.com/user-attachments/assets/8062ebba-d19b-474d-bb00-9fa9260c83cb" />
+
+Einzelsenden mit externer Ansteuerung der LEDs
+<img width="777" height="341" alt="Image" src="https://github.com/user-attachments/assets/cc19c116-144e-45ec-b803-898e146aec36" />
+
+
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Welcher Aufwand steht dahinter die Defaultwerte im Programm zu hinterlegen. Bieten Sie mir den bitte kurz an dann kann ich das nachschieben. Kann den Issue hierzu nicht mehr finden.
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+was meinen sie mit Default Werte ?
+
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Hab Ihnen über GitHub zum Software Abschluss eine Zusammenstellung gemacht zu den Default Werten welch in der Software noch mit eingebunden werden sollen. Ihrer Frage nach ist diese nicht bei Ihnen angekommen.
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+Leider verstehe ich nicht was sie mit Default Werten meinen. 
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+**Default Werte:**
+1.) Bei der Aktivierung bzw beim Wechsel zwischen den Funktionsblöcken soll beim Start die LED grün leuchten und die Farbgebung der LED´s soll über den Reader intern laufen solange keine weitere LED Farbe gewünscht, aktuell ist diese mal OFF und mal ON.
+2.) Key A und Key B in den Registern sollen beim Einschalten immer FF FF FF FF FF FF haben, da diese meistens im Transponder beim Auslieferungszustand so hinterlegt ist.
+3.) die Baudrate am Reader sollte immer in Ihrer Software beim Neustart auf 115200Baud sein. Es könnte sein dass der Anwender über FB3 diese im Reader aus irgend einem Grund verändert. So können wir Sicher gehen dass die Kommunikation mit dem Reader immer nach einem Neustart  wieder saube läuft.
+
+Das hätte bei Ihnen ankomen sollen. 
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+bitte diese Punkte in der Softwarespezifikation nachtragen, nur dann kann ich ein Angebot erstellen ....
+
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Siehe Anhang
+
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26175902/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+
+die Änderungen sind in blau ergänzt.
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+im FB3 werden alle Automatismen abgeschaltet damit der Tunnel Mode funktioniert, damit ist auch die funktionsweise der LED nicht sicher zu stellen !
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+ist so nicht nachvollziehbar, wir senden über den Bus den String z.B. die LED blau einzuschalten dann wird dies ausgeführt und die Rückmeldung vom Reader wird wieder zur Übermittlung an den Bus bereitgestellt.
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+ihre Antwort berücksichtigt nicht den zustand das alle Automatismen abgeschaltet werden in FB3. das einschalten einer LED geht natürlich. Aber das zyklische Senden wird abgeschaltet damit der Tunnel Mode überhaupt funktioniert. Ansonsten müssten sie mir genau Aufschlüssen in welchem Mode der Reader versetzt wird wenn in den FB3 gewechselt wird. 
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+Aus welchem Grund müssen die Automatismen generell abgeschaltet werden. Wenn der Reader Daten sendet, nimmt ihre Software diese entgegen und legt Sie im entsprechenden Register ab. Über einen Zeitstempel oder ein Toppelbyte können wir dann die Datensätz überwachen. Dass der Automatismus zum Lesen und Beschreiben einer Speicherzelle abgeschaltet werden muss ist nachvollziehbar.
+Bei FB1 ist dies nach meinem Wissensstand ja auch der Fall
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+Aus dem technischen Verständnis heraus das sich ein "Tunnel Mode"  und ein Automatisches versenden von Telegrammen gegenseitig ausschließen. Im "Tunnel Mode" werden ausschließlich Telegramme an den RFID Reader  gesendet und die Response wieder über Modbus zur Verfügung gestellt. Es ist keine Logik vorgesehen um die Antwort vom RFID Reader die zu eine beliebigen Zeitpunkt kommet in einer Form auszuwerten. die SAM Firmware kenne ja den Request dafür gar nicht. Deshalb muss im Tunnel Mode der RFID Reader im reinen Slave Mode betrieben werden. den Tunnel Mode (FB3) mit irgendeinem anderen Mode zu vergleichen bringt dabei nix: Im FB0, FB1 und FB2 ist der ATSAM der alleinige Master über dern RFID Reader und damit über dessen Arbeits-Zustand. 
+Im FB3 weiß man gar nicht welche Telegramme ausgetauscht werden. und damit in welchen zustand der Reader versetzt wird. 
+Gerade  in der Spezifikation beschriebene Anwendungsfall das Lesen und Schreiben mit auf RFID Tags funktionieren soll und es da ja schon erkannt ist das man das automatische Senden abschalten muss.
+
+Ein ordnungsgemäßes Arbeiten des FB3 kann ich deshalb **nicht** sicherstellen  wenn. das zyklische Senden aktiviert wird! entweder per Default oder per "Tunnel" Request 
+
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+OK, unter Tunnel-Mode war mein Verständnis, dass die Daten in beide Richtungen nur durchgereicht werden, unabhängig wer Master oder Device ist. So hätte der Anwender in seiner Software das Zyklisch-Senden abschalten müssen um anschließend den Datenspeicher zu bearbeiten.
+Da im Grund der Funktionsablauf noch gewährleistet ist kann ich hier den Abstrich Zyklisch- und Einzel-Senden mitgehen, wir im Hause Schlegel müssen hier dann in unserer Anwender Beschreibung explizit kurz darauf eingehen. So können Sie dann den Automatismus zwischen ATSAM und dem Reader abschalten.
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+dann bitte die Spezifikation entsprechend abändern. und in der Spezifikation das Datum aktualisieren damit ich im Angebot darauf Bezug nehmen kann
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26219142/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+das muss noch korrigiert werden:
+
+<img width="788" height="523" alt="Image" src="https://github.com/user-attachments/assets/f8610a5b-b33b-447e-a961-52112b8bcd88" />
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26234236/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+und hier muss auch FB3 ausgenommen werden:
+
+<img width="878" height="165" alt="Image" src="https://github.com/user-attachments/assets/cd37925c-a89e-4401-86e8-4f8e423ad610" />
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26241781/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+Sorry das ich nerve aber was ist der punkt: 
+* 0x08 ACCESS Bytes werden übertragen
+Das ACCESS Byte wird nur im Transponder geändert, wenn sich die Daten im Register ändern.
+Default Wert ... 
+
+unter Funktionsbaustein 2, was ist damit gemeint? 
+
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+bei den ACCESS Bytes geht es hier um die Bytes 54 bis 56 oder 118 bis 120 im Speicherblock.
+<img width="607" height="281" alt="Image" src="https://github.com/user-attachments/assets/266f44ba-f5d4-4052-8c9a-970fa04418d5" />
+über diese Bytes kann man diverse Funktionen beim Lesen und Schreiben auf den Speicherblock auslösen. eine Funktion hier ist z.B. dass der Speicherblock im Transponder nicht sichtbar ist und nur über Key A oder Key B sichtbar gemacht werden kann. Aktuell kann man die Blockdaten mit jedem NFC tauglichen Handy auslesen.
+
+Für Sie bedeutet dies nur dass die 3 Bytes aus den Modbus Registern in die Speicherzellen abgelegt werden.  vergleichbar mit Key A und Key B.
+
+--
+author:	Schlege
+association:	collaborator
+edited:	false
+status:	none
+--
+PS: Jeder Speicherblock beim Mifare Classic Transponder hat an dieser Stelle die ACCESS Bytes zum Sektor.
+--
+author:	FrankeEDF
+association:	owner
+edited:	true
+status:	none
+--
+diese 3 Byte sind doch immer Teil des ganzen blocks den man schon lesen kann ??  warum hier eine Sonderlocke? wann sollen diese Bytes ermittelt werden. bitte den Ablauf den sie im sinn haben beschreiben. 
+Sind das neue Modbus register was passiert beim lesen ?  
+--
+author:	FrankeEDF
+association:	owner
+edited:	false
+status:	none
+--
+was bei schreiben ? welche Telegramme zum RFID Reader sind dann nötig? was meinen sie mit einfach? welche Speicherstellen sind gemeint? 
+--

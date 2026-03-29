@@ -1,0 +1,5 @@
+- die Funktion "LED Offline" mit Code 0x14 ist nicht umgesetzt.
+
+<img width="1305" height="465" alt="Image" src="https://github.com/user-attachments/assets/2f5f5d89-01ba-4cc9-8745-bee5050df9b3" />
+
+- Hiermit erfolgt die Ansteuerung der Status LED über den Reader.

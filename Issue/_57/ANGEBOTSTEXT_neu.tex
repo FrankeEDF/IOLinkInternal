@@ -1,0 +1,743 @@
+% LaTeX-Template für Angebot EDF
+\documentclass[a4paper,11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usepackage[left=2.5cm,right=2cm,top=3cm,bottom=3cm]{geometry}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage{ulem}      % \uline für Unterstreichung
+\usepackage{etoolbox}  % \patchcmd
+
+% Schrift
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% Keine Einrückung, Abstand zwischen Absätzen
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+% Kompakte Listen
+\setlist[itemize]{noitemsep, topsep=2pt, parsep=0pt}
+
+% ── Header/Footer für Folgeseiten ──────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+% Linke Seite: Firmenname + Adresse (\"u statt ü wegen fancyhdr-Encoding)
+\fancyhead[L]{%
+  \parbox[t]{0.6\textwidth}{%
+    \textbf{Entwicklungsb\"uro Daniel Franke}\\[-1pt]
+    \small Wiesenstr. 1, 78166 Donaueschingen, Germany%
+  }%
+}
+% Rechte Seite: Logo
+\fancyhead[R]{\includegraphics[height=1.1cm]{logo_edf.png}}
+\renewcommand{\headrulewidth}{0.4pt}
+% Footer: Bankverbindung links, Seitenzahl rechts
+\fancyfoot[L]{\small Bankverbindung: N26, BIG: NTSBDEB1XXX; IBAN: DE90\,1001\,1001\,2620\,1799\,45}
+\fancyfoot[R]{\small Seite~\thepage~von~\pageref{LastPage}}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Sicherheitsabstand für Header-Inhalt
+\setlength{\headheight}{28pt}
+\addtolength{\topmargin}{-8pt}
+
+% Überschriften kompakt
+\usepackage{titlesec}
+\titlespacing{\section}{0pt}{8pt}{2pt}
+\titlespacing{\subsection}{0pt}{6pt}{2pt}
+\titlespacing{\subsubsection}{0pt}{4pt}{2pt}
+
+% pandoc-Kompatibilität
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\begin{document}
+
+% ── Seite 1: eigener Stil (kein fancy-Header) ──────────────────────────────
+\thispagestyle{empty}
+
+% Briefkopf Seite 1: Firma links, Logo rechts
+\begin{minipage}[t]{0.60\textwidth}
+  {\large\textbf{\uline{E}ntwicklungsb\"uro \uline{D}aniel \uline{F}ranke}}\\[2pt]
+  Wiesenstr. 1, 78166 Donaueschingen, Germany\\
+  Tel.: 0771-8989486, \quad D1: +49\,171\,/\,65\,62\,294\\
+  Fax: 0771-8989420, \quad eMail: franke@edf-online.de\\
+  {\small Ust-IdNr: DE174292199}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+  \raggedleft
+  \includegraphics[height=2.2cm]{logo_edf.png}
+\end{minipage}
+
+\vspace{0.3cm}
+{\footnotesize Entwicklungsb\"uro Daniel Franke,\quad Wiesenstr. 1,\quad 78166 Donaueschingen}\\
+{\color{black}\rule{\linewidth}{0.2pt}}
+
+\vspace{0.5cm}
+\textbf{Georg Schlegel GmbH \& Co. KG}\\
+Georg Selig\\
+Kapellenweg 4\\
+D-88525 D\"urmentingen
+
+\vspace{1.2cm}
+
+% Angebot-Titelblock: "Angebot" groß links, Nummer/Datum/Seite rechts
+\begin{minipage}[b]{0.45\textwidth}
+  {\fontsize{28}{32}\selectfont\textbf{Angebot}}
+\end{minipage}
+\hfill
+\begin{minipage}[b]{0.48\textwidth}
+  \begin{tabular}{ll}
+    Nummer: & \textbf{70088} \\[2pt]
+    Datum:  & \textbf{26.03.2026} \\[2pt]
+    Seite:  & \thepage/\pageref{LastPage} \\
+  \end{tabular}
+\end{minipage}
+
+\vspace{0.6cm}
+
+% ── Inhalt aus Markdown ────────────────────────────────────────────────────
+Sehr geehrte Damen und Herren,
+
+wir bedanken uns für Ihre Anfrage und freuen uns, Ihnen auf Basis der
+von Ihnen übermittelten Unterlagen ( „Scan\_RFID-to-MBS.pdf``,
+„Datenblatt\_RRJ\_RFID\_V05\_240202.pdf``) sowie der ausgetauschten
+Mails, geführten Telefonate und Teamkonferenzen das folgende Angebot
+unterbreiten zu dürfen.
+
+\hypertarget{angebot-umsetzung-erweiterte-spezifikation-v04}{%
+\section{Angebot: Umsetzung Erweiterte Spezifikation
+V04}\label{angebot-umsetzung-erweiterte-spezifikation-v04}}
+
+\hypertarget{zusemmenfassung-und-uxfcbersicht-aller-software.spezifikation_rfid.to.mbs_v04_2026.pdf-von-der-firma-schlegel-gmbh-co.-kg}{%
+\subsection{Zusemmenfassung und Übersicht aller
+Software.Spezifikation\_RFID.to.MBS\_V04\_2026.pdf von der Firma
+Schlegel GmbH \&
+Co.~KG}\label{zusemmenfassung-und-uxfcbersicht-aller-software.spezifikation_rfid.to.mbs_v04_2026.pdf-von-der-firma-schlegel-gmbh-co.-kg}}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule
+Nr. & Datum - Uhrzeit & Kontext \\
+\midrule
+\endhead
+\textbf{1} & 2026-03-23 08:36 & Initiale V04 - ``Änderungen in blau'' \\
+\textbf{2} & 2026-03-24 16:34 & Korrektur: FB3 Automatismen \\
+\textbf{3} & 2026-03-25 07:50 & Korrektur: FB3 Baudrate-Telegramme \\
+\textbf{4} & 2026-03-25 12:32 & Korrektur: FB3 LED-Default \\
+\textbf{5} & 2026-03-26 14:03 & Korrektur: ACCESS Bytes (0x08)
+entfernt \\
+\bottomrule
+\end{longtable}
+
+Nach aufwändiger Analyse der V04-Spezifikation wurde festgestellt, dass
+\textbf{14 von 15 blau markierten Anforderungen umgesetzt werden
+können}. Die Anforderung (ACCESS Bytes 0x08) basiert auf einem
+Missverständnis Seitend des Auftraggebers und entfällt. Die Anforderung
+wurde in der letzen Version (\textbf{5}) der Spezifikation entfernt.
+
+\hypertarget{anforderungen-aus-v04-spezifikation}{%
+\subsection{Anforderungen aus
+V04-Spezifikation}\label{anforderungen-aus-v04-spezifikation}}
+
+Alle \textbf{blau markierten} Änderungen aus der V04-Spezifikation
+werden wie folgt implementiert:
+
+\hypertarget{funktionsbaustein-0-fb0---offline}{%
+\subsubsection{Funktionsbaustein 0 (FB0) -
+Offline}\label{funktionsbaustein-0-fb0---offline}}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{LED Status OFF} (keine LED im Reader und Leuchtring)
+\end{itemize}
+
+\hypertarget{funktionsbaustein-1-fb1---uid-abfrage}{%
+\subsubsection{Funktionsbaustein 1 (FB1) - UID
+Abfrage}\label{funktionsbaustein-1-fb1---uid-abfrage}}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{LED grün beim Aktivieren (Offline Mode)}
+\item
+  \textbf{LED-Steuerung über Reader}
+\end{itemize}
+
+\hypertarget{funktionsbaustein-2-fb2---mifare-classic}{%
+\subsubsection{Funktionsbaustein 2 (FB2) - Mifare
+Classic}\label{funktionsbaustein-2-fb2---mifare-classic}}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{LED grün beim Aktivieren (Offline Mode)}
+\item
+  \textbf{LED-Steuerung: wechsel zwischen Offline Mode und LED - Farb
+  Ansteuerung}
+\item
+  \textbf{Key A/B Default: FF FF FF FF FF FF}
+\item
+  \textbf{ACCESS Bytes (0x08)} - entfällt nach Klärung (NICHT nötig)
+\end{itemize}
+
+\hypertarget{funktionsbaustein-3-fb3---tunnel-mode}{%
+\subsubsection{Funktionsbaustein 3 (FB3) - Tunnel
+Mode}\label{funktionsbaustein-3-fb3---tunnel-mode}}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Baudrate fest auf 115200, Änderung gesperrt}
+\item
+  \textbf{Telegramme zum Setzen der Baudrate abfangen und verhindern}
+\item
+  \textbf{Key A/B Default: FF FF FF FF FF FF}
+\item
+  \textbf{Zyklisch-/Einzel-Senden wird abgeschaltet} (sporadische
+  Telegramme stören/verhindern einwandfreie Funktion des Tunnel Modes)
+\item
+  \textbf{dadurch keine automatische LED-Steuerung (Offline Mode)}
+\end{itemize}
+
+\hypertarget{systemneustart-defaults}{%
+\subsubsection{Systemneustart Defaults}\label{systemneustart-defaults}}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Baudrate: Erkennung und automatische Korrektur auf 115200 kBd}
+\item
+  \textbf{Zyklisch Senden: ON}
+\item
+  \textbf{LED über Reader (Offline Mode)}
+\item
+  \textbf{FB1 aktiv beim Start}
+\end{itemize}
+
+\hypertarget{umfang}{%
+\subsubsection{Umfang}\label{umfang}}
+
+\textbf{Von 15 blau markierten Anforderungen:}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{14 werden implementiert} (inkl. Baudrate-Telegramm-Sperre in
+  FB3)
+\item
+  \textbf{1 entfällt} (ACCESS Bytes 0x08 - nach Klärung nicht
+  erforderlich)
+\end{itemize}
+
+\hypertarget{leistungsumfang}{%
+\subsection{Leistungsumfang}\label{leistungsumfang}}
+
+\hypertarget{analyse-und-kluxe4rung-bereits-erfolgt}{%
+\subsubsection{1. Analyse und Klärung (bereits
+erfolgt)}\label{analyse-und-kluxe4rung-bereits-erfolgt}}
+
+\begin{itemize}
+\tightlist
+\item
+  Vollständige Analyse der V04-Spezifikation
+\item
+  \textbf{Extraktion und Dokumentation aller 15 blau markierten
+  Änderungen}
+\item
+  \textbf{Systematischer Abgleich jeder Anforderung:}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    FB0: LED OFF Verhalten
+  \item
+    FB1: LED grün, Default beim Start
+  \item
+    FB2: LED grün, Key A/B Defaults, LED Offline, ACCESS Bytes
+  \item
+    FB3: Baudrate-Sperre, \textbf{Klärung dass zyklische Telegramme im
+    Tunnel Mode zwingend verboten sind} (sporadische Telegramme
+    stören/verhindern Funktion)
+  \item
+    Systemneustart: Alle Default-Werte
+  \end{itemize}
+\item
+  Tiefenanalyse der Firmware-Architektur:
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Register-Handling und Trigger-Logik
+  \item
+    RFID-Authentifizierung und Block-Schreiben
+  \item
+    LED-Steuerung und Funktionsbausteinwechsel
+  \item
+    Default-Werte bei Systemneustart
+  \item
+    Modbus-Dokumentation
+  \end{itemize}
+\item
+  \textbf{Identifikation des Missverständnisses bzgl. ACCESS Bytes
+  (0x08)}
+\item
+  Multiple Iterationen mit Rückfragen und Korrekturen
+\item
+  Klärung mit Ihnen über die tatsächliche Implementierung
+\end{itemize}
+
+\textbf{Ergebnis:}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{14 Anforderungen spezifiziert und dokumentiert}
+\item
+  \textbf{1 Anforderung (ACCESS Bytes 0x08) als nicht erforderlich
+  identifiziert:}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Die Firmware muss Key A/B NICHT zu einem Datenblock zusammenbauen
+  \item
+    ACCESS Bytes funktionieren bereits über Register 1018-1025
+    (identisch zu allen anderen Blöcken)
+  \item
+    Separate Register sind weder nötig noch sinnvoll
+  \end{itemize}
+\item
+  \textbf{Wichtige Klärung zu FB3 (Tunnel Mode):}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Zyklische und Einzel-Senden-Telegramme MÜSSEN zwingend abgeschaltet
+    werden
+  \item
+    Sporadische automatische Telegramme stören/verhindern die
+    einwandfreie Funktion im Tunnel Mode
+  \item
+    Diese Klärung war essenziell für die korrekte Implementierung
+  \end{itemize}
+\end{itemize}
+
+\hypertarget{firmware-implementierung}{%
+\subsubsection{2.
+Firmware-Implementierung}\label{firmware-implementierung}}
+
+\hypertarget{funktionsbaustein-0-fb0}{%
+\paragraph{2.1 Funktionsbaustein 0
+(FB0)}\label{funktionsbaustein-0-fb0}}
+
+\begin{itemize}
+\tightlist
+\item
+  LED Status OFF beim Aktivieren
+\item
+  Keine automatische LED-Steuerung
+\end{itemize}
+
+\hypertarget{funktionsbaustein-1-fb1}{%
+\paragraph{2.2 Funktionsbaustein 1
+(FB1)}\label{funktionsbaustein-1-fb1}}
+
+\begin{itemize}
+\tightlist
+\item
+  LED grün beim Aktivieren (Offline Mode)
+\item
+  LED-Steuerung über Reader aktivieren
+\item
+  FB1 als Default beim Systemneustart
+\end{itemize}
+
+\hypertarget{funktionsbaustein-2-fb2}{%
+\paragraph{2.3 Funktionsbaustein 2
+(FB2)}\label{funktionsbaustein-2-fb2}}
+
+\begin{itemize}
+\tightlist
+\item
+  LED grün beim Aktivieren (Offline Mode)
+\item
+  LED-Steuerung über Reader aktivieren
+\item
+  Key A/B Default-Werte: FF FF FF FF FF FF
+\item
+  LED Offline Funktion (0x14) implementieren
+\end{itemize}
+
+\hypertarget{funktionsbaustein-3-fb3}{%
+\paragraph{2.4 Funktionsbaustein 3
+(FB3)}\label{funktionsbaustein-3-fb3}}
+
+\begin{itemize}
+\tightlist
+\item
+  Baudrate fest auf 115200, Änderungen sperren
+\item
+  \textbf{Telegramme zum Setzen der Baudrate abfangen und verhindern}
+\item
+  Key A/B Default-Werte: FF FF FF FF FF FF
+\item
+  Einzel- und Zyklisch-Senden abschalten
+\item
+  Keine automatische LED-Steuerung
+\end{itemize}
+
+\hypertarget{systemneustart}{%
+\paragraph{2.5 Systemneustart}\label{systemneustart}}
+
+\begin{itemize}
+\tightlist
+\item
+  Baudrate-Erkennung und automatische Korrektur auf 115200
+\item
+  Zyklisch Senden: ON
+\item
+  LED über Reader (Offline Mode)
+\item
+  FB1 aktivieren
+\end{itemize}
+
+\hypertarget{testing-und-debugging}{%
+\paragraph{2.6 Testing und Debugging}\label{testing-und-debugging}}
+
+\begin{itemize}
+\tightlist
+\item
+  Funktionstest aller 4 Funktionsbausteine und Änderungen
+\item
+  Wechsel zwischen Funktionsbausteinen
+\item
+  Systemneustart-Verhalten
+\item
+  LED-Verhalten
+\end{itemize}
+
+\hypertarget{gui-test-tool-erweiterung}{%
+\subsubsection{3. GUI Test Tool
+Erweiterung}\label{gui-test-tool-erweiterung}}
+
+\begin{itemize}
+\tightlist
+\item
+  Anpassung des GUI Test Tools an die geänderten Funktionsbausteine
+\item
+  Default-Werte anzeigen und setzen (Key A/B: FF FF FF FF FF FF)
+\item
+  Baudrate-Sperre in FB3 visualisieren und testen
+\item
+  Zyklisch-Senden Steuerung mit und ohne Ansteuerung der LED
+\item
+  Test der Farbe und aktivieren der Offline LED Ansteuerung Funktion
+  (0x14, \ldots) für FB2
+\end{itemize}
+
+\hypertarget{dokumentation-erweitern}{%
+\subsubsection{4. Dokumentation
+erweitern}\label{dokumentation-erweitern}}
+
+\begin{itemize}
+\tightlist
+\item
+  Neue Dokumentationsdatei für Trailer Blocks
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Beispiele für Trailer Block schreiben
+  \end{itemize}
+\item
+  Bestehende Modbus-Dokumentation referenzieren und anpassen
+\end{itemize}
+
+\hypertarget{gesamtaufwand}{%
+\subsection{Gesamtaufwand}\label{gesamtaufwand}}
+
+\begin{longtable}[]{@{}lll@{}}
+\toprule
+Position & Aufwand & Status \\
+\midrule
+\endhead
+Analyse und Klärung & 8 Stunden & Erledigt \\
+Firmware-Implementierung & 15-20 Stunden & Ausstehend \\
+GUI Test Tool Erweiterung & 4-6 Stunden & Ausstehend \\
+Dokumentation erweitern (optional) & 2-3 Stunden & Ausstehend \\
+\textbf{Gesamt (mit Dokumentation)} & \textbf{29-37 Stunden} & \\
+\textbf{Gesamt (ohne Dokumentation)} & \textbf{27-34 Stunden} & \\
+\bottomrule
+\end{longtable}
+
+\hypertarget{konditionen-fuxfcr-abschluss}{%
+\subsection{Konditionen für
+Abschluss}\label{konditionen-fuxfcr-abschluss}}
+
+Für den Abschluss dieser Implementierung gelten folgende Bedingungen:
+
+\hypertarget{testplan-vorlegen-und-gui-test-tool-verwenden}{%
+\subsubsection{1. Testplan vorlegen und GUI Test Tool
+verwenden}\label{testplan-vorlegen-und-gui-test-tool-verwenden}}
+
+Der Kunde verpflichtet sich, vor Abnahme einen Testplan vorzulegen, der
+mindestens folgende Szenarien abdeckt:
+
+\textbf{Funktionsbausteine:}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Test FB0:} LED OFF beim Aktivieren
+\item
+  \textbf{Test FB1:} LED grün, UID Abfrage funktioniert
+\item
+  \textbf{Test FB2:} LED grün, Mifare Classic lesen/schreiben,
+\item
+  \textbf{Test FB2:} LED Offline mode
+\item
+  \textbf{Test FB2:} LED LED Farb Modi
+\item
+  \textbf{Test FB3:} Tunnel Mode, Baudrate gesperrt
+\item
+  \textbf{Test Systemneustart:} Baudrate korrektur auf 115200, FB1
+  aktiv, Zyklisch Senden ON
+\end{itemize}
+
+\textbf{Trailer Blocks:}
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Test 1:} Trailer Block lesen (z.B. Block 7)
+\item
+  \textbf{Test 2:} Trailer Block schreiben mit neuen ACCESS Bits
+\item
+  \textbf{Test 3:} Trailer Block schreiben mit neuen Keys
+\item
+  \textbf{Test 4:} Fehlerfall - falsche Authentifizierung
+\end{itemize}
+
+\textbf{GUI Test Tool Verpflichtung:}
+
+\begin{itemize}
+\tightlist
+\item
+  Der Kunde verpflichtet sich, eventuelle Fehler mit dem \textbf{GUI
+  Test Tool nachzuvollziehen}
+\item
+  Das GUI Test Tool ermöglicht eine schnellere und präzisere
+  Fehlerdiagnose
+\item
+  Fehlermeldungen ohne GUI Test Tool Protokoll können nicht bearbeitet
+  werden
+\end{itemize}
+
+\hypertarget{neue-issues-ausschlieuxdflich-uxfcber-github}{%
+\subsubsection{2. Neue Issues ausschließlich über
+GitHub}\label{neue-issues-ausschlieuxdflich-uxfcber-github}}
+
+Alle zukünftigen Anforderungen und Problemmeldungen erfolgen
+ausschließlich über:
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{GitHub Issues} im Repository
+\item
+  \textbf{Verwendung der bereitgestellten Templates:}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Bug Report
+  \item
+    Feature Request
+  \item
+    Documentation Request
+  \end{itemize}
+\end{itemize}
+
+\textbf{Vorteil für beide Seiten:}
+
+\begin{itemize}
+\tightlist
+\item
+  Nachvollziehbare Kommunikation
+\item
+  Klare Spezifikation
+\item
+  Vermeidung von Missverständnissen
+\item
+  Historische Nachvollziehbarkeit
+\end{itemize}
+
+\hypertarget{preis}{%
+\subsection{Preis}\label{preis}}
+
+**Pauschalpreis für Abschluss Erweiterte Spezifikation V04
+
+\begin{itemize}
+\tightlist
+\item
+  \textbf{Mit Dokumentation: {[}Ihr Stundensatz{]} × 37 Stunden}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    8 Stunden Analyse (bereits geleistet)
+  \item
+    20 Stunden Firmware-Implementierung (geschätzt)
+  \item
+    6 Stunden GUI Test Tool Erweiterung
+  \item
+    3 Stunden Dokumentation
+  \end{itemize}
+\item
+  \textbf{Ohne Dokumentation: {[}Ihr Stundensatz{]} × 34 Stunden}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    8 Stunden Analyse (bereits geleistet)
+  \item
+    20 Stunden Firmware-Implementierung (geschätzt)
+  \item
+    6 Stunden GUI Test Tool Erweiterung
+  \end{itemize}
+\end{itemize}
+
+\hypertarget{lieferumfang}{%
+\subsection{Lieferumfang}\label{lieferumfang}}
+
+Nach Abschluss erhalten Sie:
+
+\begin{enumerate}
+\def\labelenumi{\arabic{enumi}.}
+\tightlist
+\item
+  \textbf{Vollständige Analyse-Dokumentation} (sofern nicht bereits
+  erstellt und zugesandt)
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Detaillierte Erklärung der einzelnen Missverständnisses wenn
+    gewünscht
+  \item
+    Firmware-Architektur-Analyse und Nachweise
+  \end{itemize}
+\item
+  \textbf{Firmware-Update}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Implementierung aller 14 Anforderungen
+  \item
+    Testing und Debugging
+  \item
+    Binärdateien für Deployment
+  \end{itemize}
+\item
+  \textbf{GUI Test Tool Erweiterung}
+
+  \begin{itemize}
+  \tightlist
+  \item
+    Angepasst an alle geänderten Funktionsbausteine
+  \item
+    LED-Steuerung für FB0, FB1, FB2, FB3 visualisiert und testbar
+  \item
+    Default-Werte anzeigen und setzen
+  \item
+    Baudrate-Sperre in FB3 testbar
+  \item
+    LED Offline Funktion (0x14)
+  \item
+    Funktionsbausteinwechsel testen
+  \end{itemize}
+\end{enumerate}
+
+\hypertarget{zeitplan}{%
+\subsection{Zeitplan}\label{zeitplan}}
+
+Nach Auftragserteilung und Erfüllung der Konditionen:
+
+\hypertarget{garantie}{%
+\subsection{Garantie}\label{garantie}}
+
+Nach Abschluss garantieren wir:
+
+\begin{itemize}
+\tightlist
+\item
+  Alle 14 Anforderungen sind vollständig implementiert
+\item
+  Das System unterstützt vollständig das Schreiben von Trailer-Blöcken
+  inkl. ACCESS Bits
+\item
+  Die Dokumentation ist korrekt und vollständig
+\item
+  GUI Test Tool funktioniert mit allen Funktionsbausteinen
+\end{itemize}
+
+\textbf{Voraussetzung:} Der vom Kunden vorgelegte Testplan wird
+erfolgreich durchlaufen.
+
+\hypertarget{annahme-und-mitwirkungspflichten}{%
+\subsection{Annahme und
+Mitwirkungspflichten}\label{annahme-und-mitwirkungspflichten}}
+
+Mit Auftragserteilung bestätigt der Kunde:
+
+\begin{itemize}
+\tightlist
+\item[$\square$]
+  Bisherige Rechnung über Firmware wird beglichen
+\item[$\square$]
+  Testplan wird vor Abnahme vorgelegt
+\item[$\square$]
+  \textbf{Fehler werden mit GUI Test Tool nachvollzogen}
+\item[$\square$]
+  \textbf{Spezifikation V04-3 wird vom Kunden erstellt} (ACCESS Bytes
+  Punkt entfernen)
+\item[$\square$]
+  Zukünftige Issues nur über GitHub mit Templates
+\item[$\square$]
+  Optional: Erweiterte Dokumentation gewünscht: {[} {]} Ja {[} {]} Nein
+\end{itemize}
+
+\begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
+
+\textbf{Angebotsgültig bis:} {[}Datum + 14 Tage{]}
+
+\textbf{Ansprechpartner:} {[}Ihr Name{]}
+
+\textbf{Datum:} {[}Heute{]}
+
+Frühester Start der Ausführung ist der 01.04.2026. Der Auftrag wird
+innerhalb von vier Wochen ab Bestellung und Eingang der Hardware
+ausgeführt. Es gelten die AGB's der Firma Entwicklungsbüro Daniel Franke
+soweit nicht hiermit anderslautend vereinbart. Zahlbar innerhalb 14 Tage
+nach Leistungserbringung und Rechnungsstellung, rein netto.
+
+% ── Footer Seite 1 (manuell, da thispagestyle=empty) ──────────────────────
+\vfill
+{\color{black}\rule{\linewidth}{0.4pt}}\\[-2pt]
+{\small Bankverbindung: N26, BIG: NTSBDEB1XXX; IBAN: DE90\,1001\,1001\,2620\,1799\,45
+\hfill Seite~\thepage/\pageref{LastPage}}
+
+\end{document}

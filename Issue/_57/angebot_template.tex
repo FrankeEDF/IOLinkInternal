@@ -1,0 +1,119 @@
+% LaTeX-Template für Angebot EDF
+\documentclass[a4paper,11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[ngerman]{babel}
+\usepackage[left=2.5cm,right=2cm,top=3cm,bottom=3cm]{geometry}
+\usepackage{graphicx}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{enumitem}
+\usepackage{parskip}
+\usepackage{hyperref}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\usepackage{xcolor}
+\usepackage{amssymb}
+\usepackage{ulem}      % \uline für Unterstreichung
+\usepackage{etoolbox}  % \patchcmd
+
+% Schrift
+\usepackage{helvet}
+\renewcommand{\familydefault}{\sfdefault}
+
+% Keine Einrückung, Abstand zwischen Absätzen
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{4pt}
+
+% Kompakte Listen
+\setlist[itemize]{noitemsep, topsep=2pt, parsep=0pt}
+
+% ── Header/Footer für Folgeseiten ──────────────────────────────────────────
+\pagestyle{fancy}
+\fancyhf{}
+% Linke Seite: Firmenname + Adresse (\"u statt ü wegen fancyhdr-Encoding)
+\fancyhead[L]{%
+  \parbox[t]{0.6\textwidth}{%
+    \textbf{Entwicklungsb\"uro Daniel Franke}\\[-1pt]
+    \small Wiesenstr. 1, 78166 Donaueschingen, Germany%
+  }%
+}
+% Rechte Seite: Logo
+\fancyhead[R]{\includegraphics[height=1.1cm]{logo_edf.png}}
+\renewcommand{\headrulewidth}{0.4pt}
+% Footer: Bankverbindung links, Seitenzahl rechts
+\fancyfoot[L]{\small Bankverbindung: N26, BIG: NTSBDEB1XXX; IBAN: DE90\,1001\,1001\,2620\,1799\,45}
+\fancyfoot[R]{\small Seite~\thepage~von~\pageref{LastPage}}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Sicherheitsabstand für Header-Inhalt
+\setlength{\headheight}{28pt}
+\addtolength{\topmargin}{-8pt}
+
+% Überschriften kompakt
+\usepackage{titlesec}
+\titlespacing{\section}{0pt}{8pt}{2pt}
+\titlespacing{\subsection}{0pt}{6pt}{2pt}
+\titlespacing{\subsubsection}{0pt}{4pt}{2pt}
+
+% pandoc-Kompatibilität
+\providecommand{\tightlist}{\setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+
+\begin{document}
+
+% ── Seite 1: eigener Stil (kein fancy-Header) ──────────────────────────────
+\thispagestyle{empty}
+
+% Briefkopf Seite 1: Firma links, Logo rechts
+\begin{minipage}[t]{0.60\textwidth}
+  {\large\textbf{\uline{E}ntwicklungsb\"uro \uline{D}aniel \uline{F}ranke}}\\[2pt]
+  Wiesenstr. 1, 78166 Donaueschingen, Germany\\
+  Tel.: 0771-8989486, \quad D1: +49\,171\,/\,65\,62\,294\\
+  Fax: 0771-8989420, \quad eMail: franke@edf-online.de\\
+  {\small Ust-IdNr: DE174292199}
+\end{minipage}
+\hfill
+\begin{minipage}[t]{0.32\textwidth}
+  \raggedleft
+  \includegraphics[height=2.2cm]{logo_edf.png}
+\end{minipage}
+
+\vspace{0.3cm}
+{\footnotesize Entwicklungsb\"uro Daniel Franke,\quad Wiesenstr. 1,\quad 78166 Donaueschingen}\\
+{\color{black}\rule{\linewidth}{0.2pt}}
+
+\vspace{0.5cm}
+\textbf{Georg Schlegel GmbH \& Co. KG}\\
+Georg Selig\\
+Kapellenweg 4\\
+D-88525 D\"urmentingen
+
+\vspace{1.2cm}
+
+% Angebot-Titelblock: "Angebot" groß links, Nummer/Datum/Seite rechts
+\begin{minipage}[b]{0.45\textwidth}
+  {\fontsize{28}{32}\selectfont\textbf{Angebot}}
+\end{minipage}
+\hfill
+\begin{minipage}[b]{0.48\textwidth}
+  \begin{tabular}{ll}
+    Nummer: & \textbf{70088} \\[2pt]
+    Datum:  & \textbf{26.03.2026} \\[2pt]
+    Seite:  & \thepage/\pageref{LastPage} \\
+  \end{tabular}
+\end{minipage}
+
+\vspace{0.6cm}
+
+% ── Inhalt aus Markdown ────────────────────────────────────────────────────
+$body$
+
+% ── Footer Seite 1 (manuell, da thispagestyle=empty) ──────────────────────
+\vfill
+{\color{black}\rule{\linewidth}{0.4pt}}\\[-2pt]
+{\small Bankverbindung: N26, BIG: NTSBDEB1XXX; IBAN: DE90\,1001\,1001\,2620\,1799\,45
+\hfill Seite~\thepage/\pageref{LastPage}}
+
+\end{document}

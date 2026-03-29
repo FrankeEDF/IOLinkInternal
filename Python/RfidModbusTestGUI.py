@@ -1030,13 +1030,19 @@ class RfidModbusTestGUI:
         # Common RFID commands dropdown
         ttk.Label(tx_btn_frame, text="Quick Commands:").pack(side=tk.LEFT, padx=(20, 5))
         self.quick_cmd_var = tk.StringVar()
-        quick_cmds = ttk.Combobox(tx_btn_frame, textvariable=self.quick_cmd_var, width=25, state="readonly")
+        quick_cmds = ttk.Combobox(tx_btn_frame, textvariable=self.quick_cmd_var, width=35, state="readonly")
         quick_cmds['values'] = (
             "Get UID: 50 00 02 22 10 26 46",
             "Get Version: 50 00 00 04 54",
-            "LED Blue: 50 00 03 03 FF 07 04 AC",
-            "LED Grün: 50 00 03 03 FF 07 01 A9",
-            "LED Off: 50 00 03 03 FF 07 00 A8"
+            "LED Blau (0x16): 50 00 03 03 FF 07 16 B8",
+            "LED Grün (0x17): 50 00 03 03 FF 07 17 B9",
+            "LED Türkis (0x18): 50 00 03 03 FF 07 18 BC",
+            "LED Off (0x19): 50 00 03 03 FF 07 19 BD",
+            "Baudrate 115200: 50 00 01 01 00 50",
+            "Baudrate 57600: 50 00 01 01 01 51",
+            "Baudrate 38400: 50 00 01 01 02 52",
+            "Baudrate 19200: 50 00 01 01 03 53",
+            "Baudrate 9600: 50 00 01 01 04 54"
         )
         quick_cmds.pack(side=tk.LEFT, padx=5)
         ttk.Button(tx_btn_frame, text="Use", command=self.use_quick_command).pack(side=tk.LEFT, padx=(5, 0))

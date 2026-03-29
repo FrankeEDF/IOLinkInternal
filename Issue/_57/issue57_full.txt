@@ -1,0 +1,238 @@
+- die Funktion "LED Offline" mit Code 0x14 ist nicht umgesetzt.
+
+<img width="1305" height="465" alt="Image" src="https://github.com/user-attachments/assets/2f5f5d89-01ba-4cc9-8745-bee5050df9b3" />
+
+- Hiermit erfolgt die Ansteuerung der Status LED über den Reader.
+Alle Codes werden so an den Reader geschickt. Wenn der Reader nicht das erwartet Verhalten zeigt, **liegt es** am Reader. 
+Bitte einfach die Schnittstelle zum Reader mitlesen ... 
+Aktuell ist in der Dokumentation der Zustand Offline nicht beschrieben. siehe folgende Bildausschnitte.
+rfid_modbus_tunnel_led_control.pdf
+
+<img width="415" height="194" alt="Image" src="https://github.com/user-attachments/assets/da65d0e4-33e8-465c-9fc1-d590b6fbdf98" />
+
+FB2_LED_Control.pdf
+
+<img width="721" height="226" alt="Image" src="https://github.com/user-attachments/assets/ca91a317-b9d6-425a-a4d1-bd1fa4fd298e" />
+
+Wenn Sie mir den steuer Code zusenden dann kann ich diesen testen.
+
+Die Steuercodes sind aus dem Datenblatt RFID Reader Dokumentation (Datenblatt_RRJ_RFID_V05_240202.pdf). Die 3 Byte Codes werden in das RFID Telegram gepackt und dann 1:1 so an den Reader geschickt. Die Angaben in Klammern sind lediglich **Beispiele** oder **Hinweise**.  
+
+**Zusammensetzung des RFID-Telegramms aus den Registerwerten:**
+
+1. Die Firmware nimmt die 2 Register in der Reihenfolge 1027, 1028.
+2. Daraus werden die Nutzdatenbytes gebildet: `B0 = Reg1027 Low`, `B1 = Reg1027 High`, `B2 = Reg1028 Low`.
+3. Diese 3 Nutzdatenbytes werden in das LED-Telegramm eingesetzt; `Reg1028 High` bleibt 0x00 und wird nicht übertragen.
+4. Die Firmware setzt den Telegramm-Header und berechnet die Checksumme automatisch.
+
+Damit ergibt sich (konzeptionell): `Header(0x50 0x00 0x03 0x03) + B0 B1 B2 + Checksumme`.
+
+die Dokumentation wurde entsprechend ergänzt :
+[Zum Abschnitt in der Dok](https://github.com/FrankeEDF/IOLink/blob/master/documentation/Modbus/ModbusSpecRFID_Add.md#:~:text=High%29%3A%20Unbenutzt%20%280x00%29-,Zusammensetzung,-des%20RFID%2DTelegramms)
+Alle von Ihnen oben beschriebene Funktionalität ist so in der Software hinterlegt und funktioniert auch zuverlässig.
+Die Funktion "Offline"  ist jedoch nicht umgesetzt und auch nicht im Dokument beschrieben.
+Die Funktion "Offline" entspricht nicht der Funktion "LED´s off" bei der Funktion Offline werden die Status LED´s über den Reader gesteuert.
+Doch der Code 0x14 wird so an den Reader weitergegeben. Bitte nachmessen !!!! Wenn der Reader nicht das gewünschte Verhalten zeigt **liegt es am** Reader.
+Eine Beschreibung ist in der Dokumentation zum RFID Reader selber Datenblatt_RRJ_RFID_V05_240202.pdf
+Der Reader kennt den CODE 0x14 nicht, dieser kommt von der SPS und muss in ihrer Software so aufbereitet werden dass der Reader es versteht so wie es in Ihrer Software bei den Farben über Register 1028 auch umgesetzt wurde. Um aus dem RFID Kommandocode 03 herraus zu kommen muss hier der Code Einzelsenden und Zyklisch senden ausgelöst werden um in den Offline Modus zu kommen. Anschließend übernimmt der Reader die Ansteuerung der LED-Farben.
+Dann schreiben sie eine passende Spezifikation und ich mache ihnen ein entsprechendes Angebot für diese Sonderfunktion
+<img width="885" height="430" alt="Image" src="https://github.com/user-attachments/assets/a942fa8c-fc85-4b65-80cb-fa9273f3a1e7" />
+Kann ich so nicht stehen lassen, Siehe Hierzu"Datenblatt_RRJ_RFID_V05_240202" Sie haben die Farben nach Datenblatt implementiert nur nicht die "Offline" Funktion. Dass diese über einen weiteren Befehl ausgeführt werden hätte sollen ist im Datenblatt zum Reader hinterlegt. 
+In ihrer Spezifikation steht eindeutig: Code 14 wird eigenständig von Reader gehandelt !!!!
+
+<img width="829" height="488" alt="Image" src="https://github.com/user-attachments/assets/e567160c-e1ca-4bff-aa9e-133f5724218a" />
+**Weder** im Datenblatt "Datenblatt_RRJ_RFID_V05_240202" **noch** in der Spezifikation  Software Spezifikation_RFID to MBS_V03 ist ein LED "Offline" Mode in der Form **beschrieben**, das er von der anderen Ansteuerung der LED abweicht.
+Kann ich so nicht stehen lassen, 
+in der Software Spezifikation_RFID to MBS_V03 sind 5 unterschiedliche Steuercods aus der SPS für die LED Anzeige hinterlegt.
+Bei den 4 Steuercods 0x16 bis 0x19 haben Sie diese nach "Datenblatt_RRJ_RFID_V05_240202" umgesetzt. 
+Es wird bei keiner LED Farbe der Steuercod direckt an den Reader weitergeleitet. Der Hinweis in der Spezifikation sollte Ihnen nur den Unterschied zeigen zwischen "Offline" und "LED OFF". 
+Nun wenn es hier jedoch Verständniss Probleme gab zu diesem Part hätten wir hier auch während der Software Erstellung kurz gemeinsam darüber reden können.  
+Alle 5 habe ich nach dem selben Muster umgesetzt. die stehen auch in der selben Tabelle. Also falsch in der Spezifikation dargestellt ? 
+Mit welchen RFID Cods arbeiten Sie zum Auslesen der UID, mit Einzelsenden oder Zyklischsenden.
+Es gibt für beide jeweils zwei Kommando Codes. Z.B. "Einzelsenden" und "Einzelsenden mit externer Ansteuerung". 
+worauf soll das hinauslaufen ?
+Im FB2 wird die UID mit dem Telegramm Command 0x22 gelesen (readTransponderID). Das passiert beim Lesen der Registers 2010–2017: 
+zusammengefasst: 
+1) im Datenblatt zum RFID reader ist kein "Offline" Mode beschrieben. 
+2)  Aus der Spezifikation ist nicht erkennbar das beim Code 0x14 was anderes gemacht werde hätte sollen als für die anderen 4 Codes die in der selben Tabelle stehen !!
+3) in der Spezifikation steht ein Hinweis "wird eigenständig vom Reader gehändelt"
+
+Bitte beschreiben sie die gewünschte Änderungen! 
+Über den Kommandocode 23 hätte es gereicht über Byte 9 den Offline Betrieb wieder zu starten, und der Reader übernimmt die Ansteuerung der LED´s. 
+
+Einzelsenden                                                                    ==>  50 00 05 23 FF 01 00 01 **03** CRC
+Einzelsenden ohne LED Ansteuerung über Reader         ==>  50 00 05 23 FF 64 00 01 **00** CRC
+Auszüge aus dem RFID Datenblatt
+
+Einzelsenden
+<img width="790" height="405" alt="Image" src="https://github.com/user-attachments/assets/8062ebba-d19b-474d-bb00-9fa9260c83cb" />
+
+Einzelsenden mit externer Ansteuerung der LEDs
+<img width="777" height="341" alt="Image" src="https://github.com/user-attachments/assets/cc19c116-144e-45ec-b803-898e146aec36" />
+
+
+Welcher Aufwand steht dahinter die Defaultwerte im Programm zu hinterlegen. Bieten Sie mir den bitte kurz an dann kann ich das nachschieben. Kann den Issue hierzu nicht mehr finden.
+
+was meinen sie mit Default Werte ?
+
+Hab Ihnen über GitHub zum Software Abschluss eine Zusammenstellung gemacht zu den Default Werten welch in der Software noch mit eingebunden werden sollen. Ihrer Frage nach ist diese nicht bei Ihnen angekommen.
+Leider verstehe ich nicht was sie mit Default Werten meinen. 
+**Default Werte:**
+1.) Bei der Aktivierung bzw beim Wechsel zwischen den Funktionsblöcken soll beim Start die LED grün leuchten und die Farbgebung der LED´s soll über den Reader intern laufen solange keine weitere LED Farbe gewünscht, aktuell ist diese mal OFF und mal ON.
+2.) Key A und Key B in den Registern sollen beim Einschalten immer FF FF FF FF FF FF haben, da diese meistens im Transponder beim Auslieferungszustand so hinterlegt ist.
+3.) die Baudrate am Reader sollte immer in Ihrer Software beim Neustart auf 115200Baud sein. Es könnte sein dass der Anwender über FB3 diese im Reader aus irgend einem Grund verändert. So können wir Sicher gehen dass die Kommunikation mit dem Reader immer nach einem Neustart  wieder saube läuft.
+
+Das hätte bei Ihnen ankomen sollen. 
+bitte diese Punkte in der Softwarespezifikation nachtragen, nur dann kann ich ein Angebot erstellen ....
+
+Siehe Anhang
+
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26175902/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+
+die Änderungen sind in blau ergänzt.
+im FB3 werden alle Automatismen abgeschaltet damit der Tunnel Mode funktioniert, damit ist auch die funktionsweise der LED nicht sicher zu stellen !
+ist so nicht nachvollziehbar, wir senden über den Bus den String z.B. die LED blau einzuschalten dann wird dies ausgeführt und die Rückmeldung vom Reader wird wieder zur Übermittlung an den Bus bereitgestellt.
+
+ihre Antwort berücksichtigt nicht den zustand das alle Automatismen abgeschaltet werden in FB3. das einschalten einer LED geht natürlich. Aber das zyklische Senden wird abgeschaltet damit der Tunnel Mode überhaupt funktioniert. Ansonsten müssten sie mir genau Aufschlüssen in welchem Mode der Reader versetzt wird wenn in den FB3 gewechselt wird. 
+Aus welchem Grund müssen die Automatismen generell abgeschaltet werden. Wenn der Reader Daten sendet, nimmt ihre Software diese entgegen und legt Sie im entsprechenden Register ab. Über einen Zeitstempel oder ein Toppelbyte können wir dann die Datensätz überwachen. Dass der Automatismus zum Lesen und Beschreiben einer Speicherzelle abgeschaltet werden muss ist nachvollziehbar.
+Bei FB1 ist dies nach meinem Wissensstand ja auch der Fall
+
+Aus dem technischen Verständnis heraus das sich ein "Tunnel Mode"  und ein Automatisches versenden von Telegrammen gegenseitig ausschließen. Im "Tunnel Mode" werden ausschließlich Telegramme an den RFID Reader  gesendet und die Response wieder über Modbus zur Verfügung gestellt. Es ist keine Logik vorgesehen um die Antwort vom RFID Reader die zu eine beliebigen Zeitpunkt kommet in einer Form auszuwerten. die SAM Firmware kenne ja den Request dafür gar nicht. Deshalb muss im Tunnel Mode der RFID Reader im reinen Slave Mode betrieben werden. den Tunnel Mode (FB3) mit irgendeinem anderen Mode zu vergleichen bringt dabei nix: Im FB0, FB1 und FB2 ist der ATSAM der alleinige Master über dern RFID Reader und damit über dessen Arbeits-Zustand. 
+Im FB3 weiß man gar nicht welche Telegramme ausgetauscht werden. und damit in welchen zustand der Reader versetzt wird. 
+Gerade  in der Spezifikation beschriebene Anwendungsfall das Lesen und Schreiben mit auf RFID Tags funktionieren soll und es da ja schon erkannt ist das man das automatische Senden abschalten muss.
+
+Ein ordnungsgemäßes Arbeiten des FB3 kann ich deshalb **nicht** sicherstellen  wenn. das zyklische Senden aktiviert wird! entweder per Default oder per "Tunnel" Request 
+
+OK, unter Tunnel-Mode war mein Verständnis, dass die Daten in beide Richtungen nur durchgereicht werden, unabhängig wer Master oder Device ist. So hätte der Anwender in seiner Software das Zyklisch-Senden abschalten müssen um anschließend den Datenspeicher zu bearbeiten.
+Da im Grund der Funktionsablauf noch gewährleistet ist kann ich hier den Abstrich Zyklisch- und Einzel-Senden mitgehen, wir im Hause Schlegel müssen hier dann in unserer Anwender Beschreibung explizit kurz darauf eingehen. So können Sie dann den Automatismus zwischen ATSAM und dem Reader abschalten.
+
+dann bitte die Spezifikation entsprechend abändern. und in der Spezifikation das Datum aktualisieren damit ich im Angebot darauf Bezug nehmen kann
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26219142/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+das muss noch korrigiert werden:
+
+<img width="788" height="523" alt="Image" src="https://github.com/user-attachments/assets/f8610a5b-b33b-447e-a961-52112b8bcd88" />
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26234236/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+
+und hier muss auch FB3 ausgenommen werden:
+
+<img width="878" height="165" alt="Image" src="https://github.com/user-attachments/assets/cd37925c-a89e-4401-86e8-4f8e423ad610" />
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26241781/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+Sorry das ich nerve aber was ist der punkt: 
+* 0x08 ACCESS Bytes werden übertragen
+Das ACCESS Byte wird nur im Transponder geändert, wenn sich die Daten im Register ändern.
+Default Wert ... 
+
+unter Funktionsbaustein 2, was ist damit gemeint? 
+
+bei den ACCESS Bytes geht es hier um die Bytes 54 bis 56 oder 118 bis 120 im Speicherblock.
+<img width="607" height="281" alt="Image" src="https://github.com/user-attachments/assets/266f44ba-f5d4-4052-8c9a-970fa04418d5" />
+über diese Bytes kann man diverse Funktionen beim Lesen und Schreiben auf den Speicherblock auslösen. eine Funktion hier ist z.B. dass der Speicherblock im Transponder nicht sichtbar ist und nur über Key A oder Key B sichtbar gemacht werden kann. Aktuell kann man die Blockdaten mit jedem NFC tauglichen Handy auslesen.
+
+Für Sie bedeutet dies nur dass die 3 Bytes aus den Modbus Registern in die Speicherzellen abgelegt werden.  vergleichbar mit Key A und Key B.
+
+PS: Jeder Speicherblock beim Mifare Classic Transponder hat an dieser Stelle die ACCESS Bytes zum Sektor.
+diese 3 Byte sind doch immer Teil des ganzen blocks den man schon lesen kann ??  warum hier eine Sonderlocke? wann sollen diese Bytes ermittelt werden. bitte den Ablauf den sie im sinn haben beschreiben. 
+Sind das neue Modbus register was passiert beim lesen ?  
+was bei schreiben ? welche Telegramme zum RFID Reader sind dann nötig? was meinen sie mit einfach? welche Speicherstellen sind gemeint? 
+Ja, ist korrekt, ist mit Key A und Key B ein ganzer Block. Sie brauchen nur die 4Bytes wie die Bytes aus Key A oder Key B behandeln und übertragen. Jedoch wird die Section mit Key A und Key B über Modbus Register abgehandelt nicht über einen Speicherblock als Ganzes. Sie setzen jetzt ja auch den Key A und Key B nach dessen Eingabe zu einen Datenblock zusammen.
+
+was bei schreiben ?                     ==> vergleichbar mit Key A
+welche Telegramme zum RFID Reader sind dann nötig?               ==> vergleichbar mit Key A
+was meinen sie mit einfach?               ==> 2 weitere Modbus Register mit in Summe 4 Byte vergleichbar mit Key A
+welche Speicherstellen sind gemeint?      ==> Siehe Datenblatt Seite 13
+
+<img width="1071" height="145" alt="Image" src="https://github.com/user-attachments/assets/501cd163-64cd-4851-8cf4-e4eaaa68525c" />
+
+
+
+
+Da ist das **Missverständnis**: 
+
+## Aussage von Ihnen
+
+> "Sie setzen jetzt ja auch den Key A und Key B nach dessen Eingabe zu einen Datenblock zusammen."
+
+## Das ist NICHT korrekt!
+
+### Aktuelle Implementierung
+
+**Firmware macht NICHT das Zusammenbauen von Keys zu einem Block!**
+
+```cpp
+// modbusSlave.cpp:796
+case 1018: // 16 Byte, 8 register : Block Number + Block Data
+   if (count == 8)
+   {
+      size_t block = rfidControl.GetBlockNumber();
+      result = rfidControl.WriteBlock(buffer, block);  // ← buffer kommt direkt von Modbus!
+      amount = 8;
+   }
+   break;
+```
+
+**Was passiert wirklich:**
+
+1. **Register 1010-1012 (Key A)** → gespeichert in `rfidControl.data_.keyA[]`
+2. **Register 1013-1015 (Key B)** → gespeichert in `rfidControl.data_.keyB[]`
+3. **Register 1018-1025 (16 Bytes)** → direkt als `buffer` an `WriteBlock()` übergeben
+
+**KEINE Zusammenführung!**
+
+Die Keys bleiben separat und werden nur für die Authentifizierung benutzt:
+
+```cpp
+// RfidControl.cpp:556
+bool RfidControl::LoginAuthenticate(uint8_t block, uint8_t keyFlag)
+{
+   // ...
+   if (keyFlag & 0x01)
+      blockData = data_.keyA;  // ← Keys werden NUR hier benutzt
+   else
+      blockData = data_.keyB;
+
+   return sendRfidTelegram(RfidTelegram::PICCAUTHKEY, ...);
+}
+```
+
+### Was Sie vorschlagen
+
+Sie denken, die Firmware würde:
+
+1. Key A aus Register 1010-1012 nehmen
+2. Key B aus Register 1013-1015 nehmen
+3. Daraus einen 16-Byte Datenblock bauen
+4. Diesen Block zum RFID Reader schicken
+
+**Das ist FALSCH! Die Firmware macht das NICHT!**
+
+### Der Unterschied
+
+| Was Sie denken               | Was wirklich passiert                          |
+|------------------------------|------------------------------------------------|
+| Keys → werden zu Datenblock  | Keys → nur für Auth                            |
+| Firmware baut Block zusammen | Block kommt komplett über Modbus via 1018-1025 |
+| Keys haben doppelte Funktion | Keys haben EINE Funktion: Auth                 |
+
+
+**Das aktuelle System unterstützt bereits vollständig das Schreiben von Trailer-Blöcken inkl. ACCESS Bytes!**
+
+Mit den Registern für Key A  und B wird **nicht** ein Speicherblock gebildet und an den Transponder übertragen. Die Werte aus den Registern für Key A **oder** B werden ausschließlich für die Authentifizierung benutzt und nur dafür benötigt. 
+
+Modbus Register für ACCESS Bytes ist weder nötig noch sinnvoll!
+
+Das schreiben eines Trailer blocks funktioniert bereits. und ist völlig identisch zum schreiben / lesen der anderen Blöcke und ist dokumentiert:
+
+
+
+<img width="1048" height="817" alt="Image" src="https://github.com/user-attachments/assets/ecc555b0-83d4-4353-8cdb-a604fa1c42e5" />
+
+Bitte passen sie die Spezifikation an indem sie diesen Punkt entfernen. 
+
+
+Hallo Herr Franke,
+wir streichen den Passus mit dem ACCESS Bytes, Sie haben rechte wir können diese ja über den Standard Schreib- und Lesebefehl abhandeln. So kann der Anwende die Daten auslesen und entsprechend Umformatieren
+
+[Software Spezifikation_RFID to MBS_V04.pdf](https://github.com/user-attachments/files/26274894/Software.Spezifikation_RFID.to.MBS_V04.pdf)
+
+
+ 
