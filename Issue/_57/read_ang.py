@@ -4,10 +4,103 @@ read_ang.py – Liest eine ODT-Vorlage und gibt alle Benutzer-Variablen aus.
 Verwendung: python read_ang.py [datei.odt]
 """
 
+import itertools
 import sys
 from odf.opendocument import load
 from odf import text, table as odftable
 from odf.namespaces import TEXTNS
+
+_table_counter = itertools.count(1)
+_TABLE_WIDTH_CM_FALLBACK = 17.0  # Fallback wenn Seitenformat nicht lesbar
+
+
+def _parse_dim_cm(value: str) -> float:
+    """Wandelt eine ODF-Maßangabe ('21.001cm', '210mm', '595.28pt') in cm um."""
+    v = (value or "").strip()
+    if v.endswith("cm"):  return float(v[:-2])
+    if v.endswith("mm"):  return float(v[:-2]) / 10.0
+    if v.endswith("in"):  return float(v[:-2]) * 2.54
+    if v.endswith("pt"):  return float(v[:-2]) * 2.54 / 72.0
+    return 0.0
+
+
+def _usable_width_cm(doc_odt, fallback: float = _TABLE_WIDTH_CM_FALLBACK) -> float:
+    """Ermittelt die nutzbare Textbreite aus der Seitenformatierung des Dokuments.
+
+    Sucht den Standard-Master-Page-Stil, liest dessen page-layout und berechnet
+    Seitenbreite − linker Rand − rechter Rand.
+    """
+    from odf import style as odfstyle
+    from odf.namespaces import FONS
+    try:
+        master_pages = doc_odt.masterstyles.getElementsByType(odfstyle.MasterPage)
+        if not master_pages:
+            return fallback
+        layout_name = None
+        for mp in master_pages:
+            ln = mp.getAttribute("pagelayoutname") or ""
+            if not ln:
+                continue
+            layout_name = ln
+            mp_name = (mp.getAttribute("name") or "").lower()
+            print (mp_name)
+            if mp_name in ("standard", "default page style", "standardseite"):
+                break  # bevorzugte Seite gefunden
+        if not layout_name:
+            return fallback
+        page_layouts = doc_odt.styles.getElementsByType(odfstyle.PageLayout)
+        pl = next((p for p in page_layouts if p.getAttribute("name") == layout_name), None)
+        if not pl:
+            return fallback
+        props_list = pl.getElementsByType(odfstyle.PageLayoutProperties)
+        if not props_list:
+            return fallback
+        p = props_list[0]
+        width   = _parse_dim_cm(p.attributes.get((FONS, "page-width"),  ""))
+        m_left  = _parse_dim_cm(p.attributes.get((FONS, "margin-left"), ""))
+        m_right = _parse_dim_cm(p.attributes.get((FONS, "margin-right"), ""))
+        usable = width - m_left - m_right
+        return usable if usable > 1 else fallback
+    except Exception:
+        return fallback
+
+
+def _token_text_len(token) -> int:
+    """Schätzt die Textlänge eines Mistletoe-Tokens (rekursiv)."""
+    try:
+        import mistletoe.span_token as st
+        if isinstance(token, st.RawText):
+            return len(token.content)
+    except ImportError:
+        pass
+    if hasattr(token, "children") and token.children:
+        return sum(_token_text_len(c) for c in token.children)
+    if hasattr(token, "content"):
+        return len(str(token.content))
+    return 0
+
+
+def _col_widths_cm(max_lens: list[int], total_cm: float = _TABLE_WIDTH_CM_FALLBACK) -> list[float]:
+    """Verteilt total_cm proportional zu den max. Zeichenlängen je Spalte."""
+    if not max_lens:
+        return []
+    adjusted = [max(l, 1) for l in max_lens]
+    total = sum(adjusted)
+    return [total_cm * l / total for l in adjusted]
+
+
+def _add_column_styles(doc_odt, widths_cm: list[float]) -> list[str]:
+    """Legt pro Spalte einen TableColumn-Stil an und gibt die Namen zurück."""
+    from odf import style as odfstyle
+    idx = next(_table_counter)
+    names = []
+    for i, w in enumerate(widths_cm):
+        name = f"MD_Col_{idx}_{i}"
+        s = odfstyle.Style(name=name, family="table-column")
+        s.addElement(odfstyle.TableColumnProperties(columnwidth=f"{w:.3f}cm"))
+        doc_odt.automaticstyles.addElement(s)
+        names.append(name)
+    return names
 
 DEFAULT_FILE = "Angebot_Blank_2.odt"
 
@@ -160,15 +253,21 @@ def insert_table_between_markers(
         doc.text.removeChild(node)
 
     # Tabelle aufbauen
-    t = odftable.Table()
+    page_w = _usable_width_cm(doc)
+    _ensure_md_styles(doc, table_width_cm=page_w)
+    t = odftable.Table(stylename="MD_Table")
     num_cols = max(len(row) for row in rows) if rows else 0
-    for _ in range(num_cols):
-        t.addElement(odftable.TableColumn())
-    for row_data in rows:
+    max_lens = [max((len(str(r[c])) if c < len(r) else 0 for r in rows), default=1)
+                for c in range(num_cols)]
+    col_names = _add_column_styles(doc, _col_widths_cm(max_lens, total_cm=page_w))
+    for name in col_names:
+        t.addElement(odftable.TableColumn(stylename=name))
+    for i, row_data in enumerate(rows):
         row = odftable.TableRow()
+        para_style = "Tabellen Überschrift" if i == 0 else "Tabellen Inhalt"
         for cell_data in row_data:
-            cell = odftable.TableCell()
-            p = text.P()
+            cell = odftable.TableCell(stylename="MD_TableCell")
+            p = text.P(stylename=para_style)
             p.addText(str(cell_data))
             cell.addElement(p)
             row.addElement(cell)
@@ -181,26 +280,49 @@ def insert_table_between_markers(
     print(f"  Tabelle mit {len(rows)} Zeile(n) zwischen '{start_var}' und '{end_var}' eingefügt.")
 
 
-def _ensure_md_styles(doc_odt) -> None:
-    """Fügt Zeichenstile für MD-Formatierungen ins Dokument ein (idempotent)."""
+def _ensure_md_styles(doc_odt, table_width_cm: float | None = None) -> None:
+    """Fügt Zeichen- und Tabellenstile für MD-Formatierungen ins Dokument ein (idempotent)."""
     from odf import style as odfstyle
 
-    styles_needed = [
-        ("MD_Bold",       {"fontweight": "bold",   "fontweightasian": "bold",   "fontweightcomplex": "bold"}),
-        ("MD_Italic",     {"fontstyle": "italic",  "fontstyleasian": "italic",  "fontstylecomplex": "italic"}),
-        ("MD_Code",       {"fontfamily": "Courier New", "fontfamilyasian": "Courier New",
-                           "fontfamilycomplex": "Courier New"}),
-    ]
     existing = {
         s.getAttribute("name")
         for s in doc_odt.automaticstyles.childNodes
         if hasattr(s, "getAttribute")
+        and not isinstance(s.getAttribute("name"), type(None))
     }
-    for name, props in styles_needed:
+    try:
+        existing.discard(None)
+    except Exception:
+        pass
+
+    # Zeichenstile
+    char_styles = [
+        ("MD_Bold",   {"fontweight": "bold",   "fontweightasian": "bold",   "fontweightcomplex": "bold"}),
+        ("MD_Italic", {"fontstyle": "italic",  "fontstyleasian": "italic",  "fontstylecomplex": "italic"}),
+        ("MD_Code",   {"fontfamily": "Courier New", "fontfamilyasian": "Courier New",
+                       "fontfamilycomplex": "Courier New"}),
+    ]
+    for name, props in char_styles:
         if name not in existing:
             s = odfstyle.Style(name=name, family="text")
             s.addElement(odfstyle.TextProperties(**props))
             doc_odt.automaticstyles.addElement(s)
+
+    # Tabellenstil
+    if "MD_Table" not in existing:
+        w = table_width_cm if table_width_cm is not None else _usable_width_cm(doc_odt)
+        s = odfstyle.Style(name="MD_Table", family="table")
+        s.addElement(odfstyle.TableProperties(align="left", width=f"{w:.3f}cm"))
+        doc_odt.automaticstyles.addElement(s)
+
+    # Zellstil mit Rahmen
+    if "MD_TableCell" not in existing:
+        s = odfstyle.Style(name="MD_TableCell", family="table-cell")
+        s.addElement(odfstyle.TableCellProperties(
+            border="0.05pt solid #000000",
+            padding="0.049cm",
+        ))
+        doc_odt.automaticstyles.addElement(s)
 
 
 def _md_inline(parent, children) -> None:
@@ -250,29 +372,32 @@ def _md_block(doc_odt, token):
         return h
 
     if isinstance(token, bt.Paragraph):
-        p = text.P()
+        p = text.P(stylename="Textkörper")
         _md_inline(p, token.children)
         return p
 
     if isinstance(token, bt.Table):
-        t = odftable.Table()
-        all_rows = []
-        if token.header:
-            all_rows.append(token.header.children)
-        for row in token.children:
-            all_rows.append(row.children)
+        t = odftable.Table(stylename="MD_Table")
+        header_rows = [token.header.children] if token.header else []
+        data_rows   = [row.children for row in token.children]
+        all_rows    = header_rows + data_rows
         num_cols = max((len(r) for r in all_rows), default=0)
-        for _ in range(num_cols):
-            t.addElement(odftable.TableColumn())
-        for row_cells in all_rows:
-            tr = odftable.TableRow()
-            for cell in row_cells:
-                tc = odftable.TableCell()
-                p = text.P()
-                _md_inline(p, cell.children)
-                tc.addElement(p)
-                tr.addElement(tc)
-            t.addElement(tr)
+        max_lens = [max((_token_text_len(r[c]) if c < len(r) else 0 for r in all_rows), default=1)
+                    for c in range(num_cols)]
+        col_names = _add_column_styles(doc_odt, _col_widths_cm(max_lens, total_cm=_usable_width_cm(doc_odt)))
+        for name in col_names:
+            t.addElement(odftable.TableColumn(stylename=name))
+        for is_header, rows in ((True, header_rows), (False, data_rows)):
+            para_style = "Tabellen Überschrift" if is_header else "Tabellen Inhalt"
+            for row_cells in rows:
+                tr = odftable.TableRow()
+                for cell in row_cells:
+                    tc = odftable.TableCell(stylename="MD_TableCell")
+                    p = text.P(stylename=para_style)
+                    _md_inline(p, cell.children)
+                    tc.addElement(p)
+                    tr.addElement(tc)
+                t.addElement(tr)
         return t
 
     if isinstance(token, bt.List):
@@ -311,7 +436,7 @@ def insert_md_between_markers(
     from mistletoe.html_renderer import HtmlRenderer
 
     doc = load(odt_path)
-    _ensure_md_styles(doc)
+    _ensure_md_styles(doc, table_width_cm=_usable_width_cm(doc))
 
     start_para = None
     end_para = None
