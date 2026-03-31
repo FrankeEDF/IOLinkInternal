@@ -24,7 +24,7 @@ def _parse_dim_cm(value: str) -> float:
     return 0.0
 
 
-def _usable_width_cm(doc_odt, fallback: float = _TABLE_WIDTH_CM_FALLBACK) -> float:
+def _usable_width_cm(doc_odt, fallback: float = _TABLE_WIDTH_CM_FALLBACK, _debug: bool = False) -> float:
     """Ermittelt die nutzbare Textbreite aus der Seitenformatierung des Dokuments.
 
     Sucht den Standard-Master-Page-Stil, liest dessen page-layout und berechnet
@@ -32,37 +32,58 @@ def _usable_width_cm(doc_odt, fallback: float = _TABLE_WIDTH_CM_FALLBACK) -> flo
     """
     from odf import style as odfstyle
     from odf.namespaces import FONS
-    try:
-        master_pages = doc_odt.masterstyles.getElementsByType(odfstyle.MasterPage)
-        if not master_pages:
-            return fallback
-        layout_name = None
-        for mp in master_pages:
-            ln = mp.getAttribute("pagelayoutname") or ""
-            if not ln:
-                continue
-            layout_name = ln
-            mp_name = (mp.getAttribute("name") or "").lower()
-            print (mp_name)
-            if mp_name in ("standard", "default page style", "standardseite"):
-                break  # bevorzugte Seite gefunden
-        if not layout_name:
-            return fallback
-        page_layouts = doc_odt.styles.getElementsByType(odfstyle.PageLayout)
-        pl = next((p for p in page_layouts if p.getAttribute("name") == layout_name), None)
-        if not pl:
-            return fallback
-        props_list = pl.getElementsByType(odfstyle.PageLayoutProperties)
-        if not props_list:
-            return fallback
-        p = props_list[0]
-        width   = _parse_dim_cm(p.attributes.get((FONS, "page-width"),  ""))
-        m_left  = _parse_dim_cm(p.attributes.get((FONS, "margin-left"), ""))
-        m_right = _parse_dim_cm(p.attributes.get((FONS, "margin-right"), ""))
-        usable = width - m_left - m_right
-        return usable if usable > 1 else fallback
-    except Exception:
+
+    def dbg(*args):
+        if _debug:
+            print("  [page-width]", *args)
+
+    master_pages = doc_odt.masterstyles.getElementsByType(odfstyle.MasterPage)
+    dbg(f"master_pages gefunden: {len(master_pages)}")
+    if not master_pages:
+        dbg("→ Fallback (keine master pages)")
         return fallback
+
+    layout_name = None
+    for mp in master_pages:
+        mp_name = (mp.getAttribute("name") or "").lower()
+        ln = mp.getAttribute("pagelayoutname") or ""
+        dbg(f"MasterPage name={mp_name!r}  pagelayoutname={ln!r}")
+        if not ln:
+            continue
+        layout_name = ln
+        if mp_name in ("standard", "default page style", "standardseite"):
+            dbg(f"→ Standard-Seite erkannt, nutze layout={ln!r}")
+            break
+
+    if not layout_name:
+        dbg("→ Fallback (kein layout_name)")
+        return fallback
+
+    page_layouts = doc_odt.automaticstyles.getElementsByType(odfstyle.PageLayout)
+    dbg(f"PageLayouts in styles: {[p.getAttribute('name') for p in page_layouts]}")
+    pl = next((p for p in page_layouts if p.getAttribute("name") == layout_name), None)
+    if not pl:
+        dbg(f"→ Fallback (PageLayout {layout_name!r} nicht gefunden)")
+        return fallback
+
+    props_list = pl.getElementsByType(odfstyle.PageLayoutProperties)
+    if not props_list:
+        dbg("→ Fallback (keine PageLayoutProperties)")
+        return fallback
+
+    p = props_list[0]
+    raw_w  = p.attributes.get((FONS, "page-width"),  "")
+    raw_ml = p.attributes.get((FONS, "margin-left"), "")
+    raw_mr = p.attributes.get((FONS, "margin-right"), "")
+    dbg(f"page-width={raw_w!r}  margin-left={raw_ml!r}  margin-right={raw_mr!r}")
+
+    width   = _parse_dim_cm(raw_w)
+    m_left  = _parse_dim_cm(raw_ml)
+    m_right = _parse_dim_cm(raw_mr)
+    usable  = width - m_left - m_right
+    dbg(f"→ {width:.3f} - {m_left:.3f} - {m_right:.3f} = {usable:.3f} cm")
+
+    return usable if usable > 1 else fallback
 
 
 def _token_text_len(token) -> int:
@@ -478,6 +499,8 @@ if __name__ == "__main__":
     path = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_FILE
 
     print(f"Vorlage: {path}\n")
+
+
 
     variables = get_user_variables(path)
     if variables:
