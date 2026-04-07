@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.3.26)  26 MAR 2026 22:57
+This is pdfTeX, Version 3.141592653-2.6-1.40.28 (MiKTeX 25.12) (preloaded format=pdflatex 2026.3.26)  31 MAR 2026 22:08
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -435,7 +435,7 @@ File: l3backend-pdftex.def 2025-10-09 L3 backend support: PDF output (pdfTeX)
 \l__color_backend_stack_int=\count314
 ) (ANGEBOTSTEXT_neu.aux
 Package babel Info: 'ngerman' activates 'german' shorthands.
-(babel)             Reported on input line 12.
+(babel)             Reported on input line 8.
 )
 \openout1 = `ANGEBOTSTEXT_neu.aux'.
 
@@ -523,7 +523,7 @@ Package hyperref Info: Link coloring OFF on input line 64.
 \@outlinefile=\write3
 \openout3 = `ANGEBOTSTEXT_neu.out'.
 
-<logo_edf.png, id=95, 597.432pt x 298.716pt>
+<logo_edf.png, id=87, 597.432pt x 298.716pt>
 File: logo_edf.png Graphic file (type png)
 <use logo_edf.png>
 Package pdftex.def Info: logo_edf.png  used on input line 80.
@@ -540,13 +540,9 @@ LaTeX Font Info:    Trying to load font information for U+msb on input line 101
 (C:\Users\Daniel\AppData\Local\Programs\MiKTeX\tex/latex/amsfonts\umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
-Overfull \hbox (71.07619pt too wide) in paragraph at lines 127--127
-|[]\T1/phv/b/n/12 Zusemmenfassung und Über-sicht al-ler Soft-wa-re.Spezifikatio
-n_RFID.to.MBS_V04_2026.pdf
- []
-
 LaTeX Font Info:    Trying to load font information for TS1+phv on input line 1
-63.
+16.
+
 (C:\Users\Daniel\AppData\Local\Programs\MiKTeX\tex/latex/psnfss\ts1phv.fd
 File: ts1phv.fd 2020/03/25 scalable font definitions for TS1/phv.
 )
@@ -557,7 +553,7 @@ iel/AppData/Local/Programs/MiKTeX/fonts/enc/dvips/base/8r.enc} <./logo_edf.png>
 ]
 File: logo_edf.png Graphic file (type png)
 <use logo_edf.png>
-Package pdftex.def Info: logo_edf.png  used on input line 298.
+Package pdftex.def Info: logo_edf.png  used on input line 299.
 (pdftex.def)             Requested size: 62.59091pt x 31.2982pt.
 
 
@@ -570,7 +566,7 @@ Package fancyhdr Warning: \headheight is too small (28.0pt):
 [2]
 File: logo_edf.png Graphic file (type png)
 <use logo_edf.png>
-Package pdftex.def Info: logo_edf.png  used on input line 424.
+Package pdftex.def Info: logo_edf.png  used on input line 425.
 (pdftex.def)             Requested size: 62.59091pt x 31.2982pt.
 
 
@@ -583,7 +579,7 @@ Package fancyhdr Warning: \headheight is too small (28.0pt):
 [3]
 File: logo_edf.png Graphic file (type png)
 <use logo_edf.png>
-Package pdftex.def Info: logo_edf.png  used on input line 544.
+Package pdftex.def Info: logo_edf.png  used on input line 558.
 (pdftex.def)             Requested size: 62.59091pt x 31.2982pt.
 
 
@@ -596,7 +592,7 @@ Package fancyhdr Warning: \headheight is too small (28.0pt):
 [4]
 File: logo_edf.png Graphic file (type png)
 <use logo_edf.png>
-Package pdftex.def Info: logo_edf.png  used on input line 687.
+Package pdftex.def Info: logo_edf.png  used on input line 671.
 (pdftex.def)             Requested size: 62.59091pt x 31.2982pt.
 
 
@@ -609,7 +605,7 @@ Package fancyhdr Warning: \headheight is too small (28.0pt):
 [5]
 File: logo_edf.png Graphic file (type png)
 <use logo_edf.png>
-Package pdftex.def Info: logo_edf.png  used on input line 743.
+Package pdftex.def Info: logo_edf.png  used on input line 689.
 (pdftex.def)             Requested size: 62.59091pt x 31.2982pt.
 
 
@@ -626,28 +622,24 @@ enddocument/afterlastpage (AED): lastpage setting LastPage.
 LaTeX2e <2025-11-01>
 L3 programming layer <2025-12-24>
  ***********
-
-
-LaTeX Warning: Label(s) may have changed. Rerun to get cross-references right.
-
 Package rerunfilecheck Info: File `ANGEBOTSTEXT_neu.out' has not changed.
-(rerunfilecheck)             Checksum: 9D5F378712F4264FC3380B917CDCF3B4;5257.
+(rerunfilecheck)             Checksum: AD0CA9BE8A487A86CE4DD2592CDB41C3;4477.
  ) 
 Here is how much of TeX's memory you used:
- 13091 strings out of 467871
- 207946 string characters out of 5417892
- 653424 words of memory out of 5000000
- 41720 multiletter control sequences out of 15000+600000
- 658667 words of font info for 79 fonts, out of 8000000 for 9000
+ 13074 strings out of 467871
+ 207607 string characters out of 5417892
+ 653119 words of memory out of 5000000
+ 41711 multiletter control sequences out of 15000+600000
+ 658355 words of font info for 78 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 69i,15n,79p,1207b,578s stack positions out of 10000i,1000n,20000p,200000b,200000s
+ 69i,16n,79p,1207b,578s stack positions out of 10000i,1000n,20000p,200000b,200000s
 <C:/Users/Daniel/AppData/Local/Programs/MiKTeX/fonts/type1/public/amsfonts/sy
 mbols/msam10.pfb><C:/Users/Daniel/AppData/Local/Programs/MiKTeX/fonts/type1/urw
 /helvetic/uhvb8a.pfb><C:/Users/Daniel/AppData/Local/Programs/MiKTeX/fonts/type1
 /urw/helvetic/uhvr8a.pfb>
-Output written on ANGEBOTSTEXT_neu.pdf (6 pages, 106461 bytes).
+Output written on ANGEBOTSTEXT_neu.pdf (6 pages, 102879 bytes).
 PDF statistics:
- 197 PDF objects out of 1000 (max. 8388607)
- 64 named destinations out of 1000 (max. 500000)
- 190 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 183 PDF objects out of 1000 (max. 8388607)
+ 57 named destinations out of 1000 (max. 500000)
+ 174 words of extra memory for PDF output out of 10000 (max. 10000000)
 

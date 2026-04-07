@@ -5,10 +5,98 @@ Verwendung: python read_ang.py [datei.odt]
 """
 
 import itertools
+import os
+import subprocess
 import sys
 from odf.opendocument import load
 from odf import text, table as odftable
 from odf.namespaces import TEXTNS
+
+# OpenOffice/LibreOffice Programm-Verzeichnisse (werden automatisch durchsucht)
+_OO_PROG_CANDIDATES = [
+    r"C:\Program Files\LibreOffice\program",
+    r"C:\Program Files (x86)\LibreOffice\program",
+    r"C:\Program Files\OpenOffice 4\program",
+    r"C:\Program Files (x86)\OpenOffice 4\program",
+    r"C:\Program Files\OpenOffice.org 4\program",
+    r"C:\Program Files (x86)\OpenOffice.org 4\program",
+]
+
+# Inline-Skript, das mit OO/LO-Python via UNO eine ODT→PDF-Konvertierung macht
+_UNO_CONVERT_SCRIPT = r"""
+import sys, os, uno
+from com.sun.star.beans import PropertyValue
+
+def to_url(path):
+    return uno.systemPathToFileUrl(os.path.abspath(path))
+
+input_path, output_path = sys.argv[1], sys.argv[2]
+
+import officehelper
+ctx  = officehelper.bootstrap()
+smgr = ctx.ServiceManager
+desktop = smgr.createInstanceWithContext("com.sun.star.frame.Desktop", ctx)
+
+p_hidden       = PropertyValue(); p_hidden.Name = "Hidden";     p_hidden.Value = True
+p_filter       = PropertyValue(); p_filter.Name = "FilterName"; p_filter.Value = "writer_pdf_Export"
+
+doc = desktop.loadComponentFromURL(to_url(input_path), "_blank", 0, (p_hidden,))
+doc.storeToURL(to_url(output_path), (p_filter,))
+doc.close(True)
+print("OK:" + output_path)
+"""
+
+
+def _find_oo_python() -> tuple[str, str] | None:
+    """Sucht das Python-Executable im OO/LO-Programmverzeichnis.
+    Gibt (python_exe, prog_dir) zurück oder None."""
+    for prog in _OO_PROG_CANDIDATES:
+        for py in ("python.exe", "python3.exe", "python"):
+            exe = os.path.join(prog, py)
+            if os.path.isfile(exe):
+                return exe, prog
+    return None
+
+
+def convert_to_pdf(odt_path: str, pdf_path: str | None = None) -> str | None:
+    """Konvertiert eine ODT-Datei mit OpenOffice/LibreOffice (UNO) in PDF.
+
+    pdf_path: Zieldatei (optional). Wenn None, wird die ODT-Datei mit .pdf-Endung verwendet.
+    Gibt den Pfad zur erzeugten PDF zurück, oder None bei Fehler.
+    """
+    found = _find_oo_python()
+    if not found:
+        print("FEHLER: OpenOffice/LibreOffice Python nicht gefunden.")
+        return None
+    oo_python, prog_dir = found
+
+    odt_abs  = os.path.abspath(odt_path)
+    expected = pdf_path or (os.path.splitext(odt_abs)[0] + ".pdf")
+    expected = os.path.abspath(expected)
+
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".py",
+                                     delete=False, encoding="utf-8") as f:
+        f.write(_UNO_CONVERT_SCRIPT)
+        tmp_script = f.name
+
+    try:
+        env = os.environ.copy()
+        env["PATH"] = prog_dir + os.pathsep + env.get("PATH", "")
+        env["PYTHONPATH"] = prog_dir + os.pathsep + env.get("PYTHONPATH", "")
+        result = subprocess.run(
+            [oo_python, tmp_script, odt_abs, expected],
+            capture_output=True, text=True, env=env,
+        )
+    finally:
+        os.unlink(tmp_script)
+
+    if result.returncode != 0 or not os.path.isfile(expected):
+        print(f"FEHLER bei PDF-Erzeugung:\n{result.stderr.strip() or result.stdout.strip()}")
+        return None
+
+    print(f"PDF gespeichert: {expected}")
+    return expected
 
 _table_counter = itertools.count(1)
 _TABLE_WIDTH_CM_FALLBACK = 17.0  # Fallback wenn Seitenformat nicht lesbar
@@ -123,7 +211,7 @@ def _add_column_styles(doc_odt, widths_cm: list[float]) -> list[str]:
         names.append(name)
     return names
 
-DEFAULT_FILE = "Angebot_Blank_2.odt"
+DEFAULT_FILE = "Angebot_Blank_libre.odt"
 
 
 def get_user_variables(odt_path: str) -> dict[str, str]:
@@ -576,3 +664,8 @@ if __name__ == "__main__":
         md_content,
         out4,
     )
+
+    # --- PDF erzeugen ---
+    print()
+    print("Erzeuge PDF aus MD-Dokument ...")
+    convert_to_pdf(out4)

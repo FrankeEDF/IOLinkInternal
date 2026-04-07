@@ -4,7 +4,7 @@
 
 | Version | Datun      |                                                           |
 |---------|------------|-----------------------------------------------------------|
-| V0.10   | 09.10.2026 | ISO 15693 Unterstützung                                   |
+| V0.10   | 09.10.2025 | ISO 15693 Unterstützung                                   |
 |         |            | Unterscheidung zwischen ISO 14443A (MIFARE) und ISO 15693 |
 |         |            | ISO-Typ-Feld zu RFID Register Map hinzugefügt.            |
 |         |            | Communication Error Handling                              | 
@@ -18,24 +18,24 @@
 
 ## Issues 48-59
 
-| #      | Titel                                        | Status      | Eroeffnet  | Geschlossen | Geschlossen von | Codeaenderung durch FrankeEDF efolgt                                                     |
-|--------|----------------------------------------------|-------------|------------|-------------|-----------------|------------------------------------------------------------------------------------------|
-| **59** | Frage Modbus Tool                            | Geschlossen | 05.02.2026 | 06.02.2026  | Schlege         | Nein - nur Rueckfrage zur CRC-Checksumme                                                 |
-| **58** | Fehlerhafter FB1                             | Geschlossen | 02.02.2026 | 05.02.2026  | Schlege         | Nein - UID beim Uebergang FB0->FB1 wurde nicht uebertragen, Firmware-Fix durch FrankeEDF |
-| **57** | LED Ansteuerung unvollstaendig               | **OFFEN**   | 02.02.2026 | -           | -               | Ja (ausstehend) - LED Offline-Funktion (Code 0x14) noch nicht implementiert              |
-| **56** | Software Update FB3                          | Geschlossen | 30.01.2026 | 30.01.2026  | FrankeEDF       | Ja - kleinere Schoenheitsfehler in der Firmware korrigiert                               |
-| **55** | Software Update FB1                          | Geschlossen | 30.01.2026 | 30.01.2026  | FrankeEDF       | Ja - LED-Verhalten bei FB1-Wechsel implementiert (gruen, dann Reader-gesteuert)          |
-| **54** | Software Update FB2                          | Geschlossen | 30.01.2026 | 30.01.2026  | FrankeEDF       | Ja - LED-Verhalten, Error-Code in Reg. 1026 und Neustart-Default FB1 umgesetzt           |
-| **53** | FB2 Read Funktion erfolglos                  | Geschlossen | 28.01.2026 | 29.01.2026  | Schlege         | Nein - Protokoll-Missverstaendnis auf Kundenseite                                        |
-| **52** | Kommunikationsprobleme FB2                   | Geschlossen | 28.01.2026 | 02.02.2026  | Schlege         | Nein - Byte-Swap-Problem lag beim Kunden (Unigate)                                       |
-| **51** | Timing Modbus Protokoll                      | Geschlossen | 19.01.2026 | 02.02.2026  | Schlege         | Nein - Timing-Problem auf Kundenseite (Deutschmann)                                      |
-| **50** | Funktionsprobleme mit FB2                    | **OFFEN**   | 10.11.2025 | -           | -               | Offen - Speicherengpass im Unigate IC, Loesung noch ausstehend                           |
-| **49** | Kommunikationsprobleme mit Transponder-Typen | Geschlossen | 30.09.2025 | 05.02.2026  | FrankeEDF       | Ja - Kompatibilitaetsfehler mit diversen Transponder-Typen in der Firmware behoben       |
-| **48** | RFID Tool                                    | Geschlossen | 29.09.2025 | 06.02.2026  | FrankeEDF       | Nein - wontfix, nur Support-Anfrage fuer Inbetriebnahme des Modbus-Tools                 |
+| #      | Thema                                        | Status      | Eroeffnet  | Geschlossen | Geschlossen von | Codeaenderung durch FrankeEDF efolgt                                                              |
+|--------|----------------------------------------------|-------------|------------|-------------|-----------------|---------------------------------------------------------------------------------------------------|
+| **59** | Frage Modbus Tool                            | Geschlossen | 05.02.2026 | 06.02.2026  | Schlege         | Nein - nur Rueckfrage zur CRC-Checksumme                                                          |
+| **58** | Fehlerhafter FB1                             | Geschlossen | 02.02.2026 | 05.02.2026  | Schlege         | Nein - UID beim Uebergang FB0->FB1 wurde nicht uebertragen, Firmware-Fix durch FrankeEDF          |
+| **57** | LED Ansteuerung unvollstaendig               | **OFFEN**   | 02.02.2026 | -           | -               | Ja (ausstehend) - LED Offline-Funktion (Code 0x14) noch nicht implementiert                       |
+| **56** | Software Update FB3                          | Geschlossen | 30.01.2026 | 30.01.2026  | FrankeEDF       | Nein - kein Inhalt                                                                                |
+| **55** | Software Update FB1                          | Geschlossen | 30.01.2026 | 30.01.2026  | FrankeEDF       | Nein - Dupilicat #57 - LED-Verhalten bei FB1-Wechsel implementiert (gruen, dann Reader-gesteuert) |
+| **54** | Software Update FB2                          | Geschlossen | 30.01.2026 | 30.01.2026  | FrankeEDF       | Ja (ausstehend) - LED-Verhalten, Error-Code in Reg. 1026 und Neustart-Default FB1 umgesetzt       |
+| **53** | FB2 Read Funktion erfolglos                  | Geschlossen | 28.01.2026 | 29.01.2026  | Schlege         | Nein - Protokoll-Missverstaendnis auf Kundenseite                                                 |
+| **52** | Kommunikationsprobleme FB2                   | Geschlossen | 28.01.2026 | 02.02.2026  | Schlege         | Nein - Byte-Swap-Problem lag beim Kunden (Unigate)                                                |
+| **51** | Timing Modbus Protokoll                      | Geschlossen | 19.01.2026 | 02.02.2026  | Schlege         | Nein - Timing-Problem auf Kundenseite (Deutschmann)                                               |
+| **50** | Funktionsprobleme mit FB2                    | **OFFEN**   | 10.11.2025 | -           | -               | Offen - Speicherengpass im Unigate IC, Loesung noch ausstehend                                    |
+| **49** | Kommunikationsprobleme mit Transponder-Typen | Geschlossen | 30.09.2025 | 05.02.2026  | FrankeEDF       | Ja - Kompatibilitaetsfehler mit diversen Transponder-Typen in der Firmware behoben                |
+| **48** | RFID Tool                                    | Geschlossen | 29.09.2025 | 06.02.2026  | FrankeEDF       | Nein - wontfix, nur Support-Anfrage fuer Inbetriebnahme des Modbus-Tools                          |
 
 ## Alle Issues
 
-| #      | Titel                                            | Status      | Eroeffnet  | Geschlossen | Geschlossen von |
+| #      | Thema                                            | Status      | Eroeffnet  | Geschlossen | Geschlossen von |
 |--------|--------------------------------------------------|-------------|------------|-------------|-----------------|
 | **59** | Frage Modbus Tool                                | Geschlossen | 05.02.2026 | 06.02.2026  | Schlege         |
 | **58** | Fehlerhafter FB1                                 | Geschlossen | 02.02.2026 | 05.02.2026  | Schlege         |

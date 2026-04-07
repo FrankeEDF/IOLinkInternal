@@ -39,6 +39,7 @@ def check_or_install(tool, winget_id):
     print(f"FEHLER: {tool} konnte nicht installiert werden.")
     return False
 
+
 # --- Tools prüfen / installieren ---
 if not check_or_install("pandoc", "JohnMacFarlane.Pandoc"):
     sys.exit(1)
@@ -63,6 +64,7 @@ cmd_tex = [
     "pandoc", str(INPUT_MD),
     "--template", str(TEMPLATE),
     "--standalone",
+    "--lua-filter", str(SCRIPT_DIR / "format_table.lua"),
     "-V", "lang=de",
     "-o", str(OUT_TEX),
 ]

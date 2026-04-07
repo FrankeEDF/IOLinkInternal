@@ -108,47 +108,47 @@ D-88525 D\"urmentingen
 \vspace{0.6cm}
 
 % ── Inhalt aus Markdown ────────────────────────────────────────────────────
-Sehr geehrte Damen und Herren,
-
 wir bedanken uns für Ihre Anfrage und freuen uns, Ihnen auf Basis der
-von Ihnen übermittelten Unterlagen ( „Scan\_RFID-to-MBS.pdf``,
-„Datenblatt\_RRJ\_RFID\_V05\_240202.pdf``) sowie der ausgetauschten
-Mails, geführten Telefonate und Teamkonferenzen das folgende Angebot
-unterbreiten zu dürfen.
+von Ihnen übermittelten Unterlagen
+
+\begin{itemize}
+\item
+  Scan\_RFID-to-MBS.pdf
+\item
+  Datenblatt\_RRJ\_RFID\_V05\_240202.pdf
+\item
+  Software.Spezifikation\_RFID.to.MBS\_V04.pdf in 5 Versionen
+\end{itemize}
+
+sowie der ausgetauschten Mails, geführten Telefonate und Teamkonferenzen
+und Themenbearbeitung über GitHub das folgende Angebot unterbreiten zu
+dürfen.
 
 \hypertarget{angebot-umsetzung-erweiterte-spezifikation-v04}{%
 \section{Angebot: Umsetzung Erweiterte Spezifikation
 V04}\label{angebot-umsetzung-erweiterte-spezifikation-v04}}
 
-\hypertarget{zusemmenfassung-und-uxfcbersicht-aller-software.spezifikation_rfid.to.mbs_v04_2026.pdf-von-der-firma-schlegel-gmbh-co.-kg}{%
-\subsection{Zusemmenfassung und Übersicht aller
-Software.Spezifikation\_RFID.to.MBS\_V04\_2026.pdf von der Firma
-Schlegel GmbH \&
-Co.~KG}\label{zusemmenfassung-und-uxfcbersicht-aller-software.spezifikation_rfid.to.mbs_v04_2026.pdf-von-der-firma-schlegel-gmbh-co.-kg}}
+Übersicht der Dokumente Software.Spezifikation\_RFID.to.MBS\_V04.pdf von
+der Firma Schlegel GmbH \& Co.~KG:
 
-\begin{longtable}[]{@{}lll@{}}
-\toprule
-Nr. & Datum - Uhrzeit & Kontext \\
-\midrule
-\endhead
-\textbf{1} & 2026-03-23 08:36 & Initiale V04 - ``Änderungen in blau'' \\
-\textbf{2} & 2026-03-24 16:34 & Korrektur: FB3 Automatismen \\
-\textbf{3} & 2026-03-25 07:50 & Korrektur: FB3 Baudrate-Telegramme \\
-\textbf{4} & 2026-03-25 12:32 & Korrektur: FB3 LED-Default \\
-\textbf{5} & 2026-03-26 14:03 & Korrektur: ACCESS Bytes (0x08)
-entfernt \\
-\bottomrule
-\end{longtable}
+\begin{tabular}{|l|l|l|}
+\hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+\end{tabular}
 
 Nach aufwändiger Analyse der V04-Spezifikation wurde festgestellt, dass
 \textbf{14 von 15 blau markierten Anforderungen umgesetzt werden
 können}. Die Anforderung (ACCESS Bytes 0x08) basiert auf einem
 Missverständnis Seitend des Auftraggebers und entfällt. Die Anforderung
-wurde in der letzen Version (\textbf{5}) der Spezifikation entfernt.
+wurde in der letzten Version (\textbf{5}) der Spezifikation entfernt.
 
-\hypertarget{anforderungen-aus-v04-spezifikation}{%
-\subsection{Anforderungen aus
-V04-Spezifikation}\label{anforderungen-aus-v04-spezifikation}}
+\hypertarget{anforderungen-aus-der-spezifikation}{%
+\subsection{Anforderungen aus der
+Spezifikation}\label{anforderungen-aus-der-spezifikation}}
 
 Alle \textbf{blau markierten} Änderungen aus der V04-Spezifikation
 werden wie folgt implementiert:
@@ -293,9 +293,10 @@ erfolgt)}\label{analyse-und-kluxe4rung-bereits-erfolgt}}
   \textbf{Identifikation des Missverständnisses bzgl. ACCESS Bytes
   (0x08)}
 \item
-  Multiple Iterationen mit Rückfragen und Korrekturen
+  Multiple Iterationen mit Rückfragen und Korrekturen im wesentlichen
+  über GitHub
 \item
-  Klärung mit Ihnen über die tatsächliche Implementierung
+  Klärung über die tatsächliche Implementierung
 \end{itemize}
 
 \textbf{Ergebnis:}
@@ -330,7 +331,7 @@ erfolgt)}\label{analyse-und-kluxe4rung-bereits-erfolgt}}
     Sporadische automatische Telegramme stören/verhindern die
     einwandfreie Funktion im Tunnel Mode
   \item
-    Diese Klärung war essenziell für die korrekte Implementierung
+    Diese Klärung ist essenziell für die korrekte Implementierung
   \end{itemize}
 \end{itemize}
 
@@ -454,33 +455,10 @@ erweitern}\label{dokumentation-erweitern}}
 \begin{itemize}
 \tightlist
 \item
-  Neue Dokumentationsdatei für Trailer Blocks
-
-  \begin{itemize}
-  \tightlist
-  \item
-    Beispiele für Trailer Block schreiben
-  \end{itemize}
+  Dokumentations für Trailer Blocks lesen / schreiben
 \item
   Bestehende Modbus-Dokumentation referenzieren und anpassen
 \end{itemize}
-
-\hypertarget{gesamtaufwand}{%
-\subsection{Gesamtaufwand}\label{gesamtaufwand}}
-
-\begin{longtable}[]{@{}lll@{}}
-\toprule
-Position & Aufwand & Status \\
-\midrule
-\endhead
-Analyse und Klärung & 8 Stunden & Erledigt \\
-Firmware-Implementierung & 15-20 Stunden & Ausstehend \\
-GUI Test Tool Erweiterung & 4-6 Stunden & Ausstehend \\
-Dokumentation erweitern (optional) & 2-3 Stunden & Ausstehend \\
-\textbf{Gesamt (mit Dokumentation)} & \textbf{29-37 Stunden} & \\
-\textbf{Gesamt (ohne Dokumentation)} & \textbf{27-34 Stunden} & \\
-\bottomrule
-\end{longtable}
 
 \hypertarget{konditionen-fuxfcr-abschluss}{%
 \subsection{Konditionen für
@@ -508,11 +486,11 @@ mindestens folgende Szenarien abdeckt:
 \item
   \textbf{Test FB2:} LED Offline mode
 \item
-  \textbf{Test FB2:} LED LED Farb Modi
+  \textbf{Test FB2:} LED LED Farb-Modi
 \item
   \textbf{Test FB3:} Tunnel Mode, Baudrate gesperrt
 \item
-  \textbf{Test Systemneustart:} Baudrate korrektur auf 115200, FB1
+  \textbf{Test Systemneustart:} Baudrate Korrektur auf 115200, FB1
   aktiv, Zyklisch Senden ON
 \end{itemize}
 
@@ -549,7 +527,7 @@ mindestens folgende Szenarien abdeckt:
 \subsubsection{2. Neue Issues ausschließlich über
 GitHub}\label{neue-issues-ausschlieuxdflich-uxfcber-github}}
 
-Alle zukünftigen Anforderungen und Problemmeldungen erfolgen
+Alle zukünftigen Anforderungen und Problem Meldungen erfolgen
 ausschließlich über:
 
 \begin{itemize}
@@ -566,7 +544,7 @@ ausschließlich über:
   \item
     Feature Request
   \item
-    Documentation Request
+    Dokumentation Request
   \end{itemize}
 \end{itemize}
 
@@ -584,41 +562,6 @@ ausschließlich über:
   Historische Nachvollziehbarkeit
 \end{itemize}
 
-\hypertarget{preis}{%
-\subsection{Preis}\label{preis}}
-
-**Pauschalpreis für Abschluss Erweiterte Spezifikation V04
-
-\begin{itemize}
-\tightlist
-\item
-  \textbf{Mit Dokumentation: {[}Ihr Stundensatz{]} × 37 Stunden}
-
-  \begin{itemize}
-  \tightlist
-  \item
-    8 Stunden Analyse (bereits geleistet)
-  \item
-    20 Stunden Firmware-Implementierung (geschätzt)
-  \item
-    6 Stunden GUI Test Tool Erweiterung
-  \item
-    3 Stunden Dokumentation
-  \end{itemize}
-\item
-  \textbf{Ohne Dokumentation: {[}Ihr Stundensatz{]} × 34 Stunden}
-
-  \begin{itemize}
-  \tightlist
-  \item
-    8 Stunden Analyse (bereits geleistet)
-  \item
-    20 Stunden Firmware-Implementierung (geschätzt)
-  \item
-    6 Stunden GUI Test Tool Erweiterung
-  \end{itemize}
-\end{itemize}
-
 \hypertarget{lieferumfang}{%
 \subsection{Lieferumfang}\label{lieferumfang}}
 
@@ -626,36 +569,29 @@ Nach Abschluss erhalten Sie:
 
 \begin{enumerate}
 \def\labelenumi{\arabic{enumi}.}
-\tightlist
 \item
-  \textbf{Vollständige Analyse-Dokumentation} (sofern nicht bereits
-  erstellt und zugesandt)
+  \textbf{Dokumentation} (sofern nicht bereits erstellt und zugesandt)
 
   \begin{itemize}
   \tightlist
   \item
-    Detaillierte Erklärung der einzelnen Missverständnisses wenn
-    gewünscht
-  \item
-    Firmware-Architektur-Analyse und Nachweise
+    Detaillierte Erklärung der einzelnen Missverständnisses aus den
+    diversen V04, wenn gewünscht
   \end{itemize}
 \item
   \textbf{Firmware-Update}
 
   \begin{itemize}
-  \tightlist
   \item
     Implementierung aller 14 Anforderungen
   \item
     Testing und Debugging
   \item
-    Binärdateien für Deployment
-  \end{itemize}
-\item
-  \textbf{GUI Test Tool Erweiterung}
-
-  \begin{itemize}
-  \tightlist
+    Binärdateien über GitHub abrufbar
+  \item
+    Quelltexte und Dokumentation über GitHub abrufbar
+  \item
+    \textbf{GUI Test Tool Erweiterung}
   \item
     Angepasst an alle geänderten Funktionsbausteine
   \item
@@ -674,7 +610,9 @@ Nach Abschluss erhalten Sie:
 \hypertarget{zeitplan}{%
 \subsection{Zeitplan}\label{zeitplan}}
 
-Nach Auftragserteilung und Erfüllung der Konditionen:
+Nach Auftragserteilung und Erfüllung der Konditionen wird der Auftrag
+innerhalb von 6 Wochen abgeschlossen. Frühester Start der Ausführung ist
+der 01.04.2026.
 
 \hypertarget{garantie}{%
 \subsection{Garantie}\label{garantie}}
@@ -687,7 +625,7 @@ Nach Abschluss garantieren wir:
   Alle 14 Anforderungen sind vollständig implementiert
 \item
   Das System unterstützt vollständig das Schreiben von Trailer-Blöcken
-  inkl. ACCESS Bits
+  und damit auch die ACCESS Bits
 \item
   Die Dokumentation ist korrekt und vollständig
 \item
@@ -706,33 +644,41 @@ Mit Auftragserteilung bestätigt der Kunde:
 \begin{itemize}
 \tightlist
 \item[$\square$]
-  Bisherige Rechnung über Firmware wird beglichen
-\item[$\square$]
   Testplan wird vor Abnahme vorgelegt
 \item[$\square$]
   \textbf{Fehler werden mit GUI Test Tool nachvollzogen}
 \item[$\square$]
-  \textbf{Spezifikation V04-3 wird vom Kunden erstellt} (ACCESS Bytes
-  Punkt entfernen)
-\item[$\square$]
   Zukünftige Issues nur über GitHub mit Templates
-\item[$\square$]
-  Optional: Erweiterte Dokumentation gewünscht: {[} {]} Ja {[} {]} Nein
 \end{itemize}
 
 \begin{center}\rule{0.5\linewidth}{0.5pt}\end{center}
 
-\textbf{Angebotsgültig bis:} {[}Datum + 14 Tage{]}
+\hypertarget{preisgestaltung}{%
+\subsection{Preisgestaltung}\label{preisgestaltung}}
 
-\textbf{Ansprechpartner:} {[}Ihr Name{]}
+Aufwand: Firmware mit GUI Test Tool Erweiterung und Dokumentation
+
+\begin{tabular}{|l|l|l|}
+\hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+ \\ \hline
+\end{tabular}
+
+Kosten: €88 * 36h = €3168
+
+\textbf{Angebotsgültig bis:} 10.04.2026
+
+\textbf{Ansprechpartner:} Daniel Franke
 
 \textbf{Datum:} {[}Heute{]}
 
-Frühester Start der Ausführung ist der 01.04.2026. Der Auftrag wird
-innerhalb von vier Wochen ab Bestellung und Eingang der Hardware
-ausgeführt. Es gelten die AGB's der Firma Entwicklungsbüro Daniel Franke
-soweit nicht hiermit anderslautend vereinbart. Zahlbar innerhalb 14 Tage
-nach Leistungserbringung und Rechnungsstellung, rein netto.
+Es gelten die AGB's der Firma Entwicklungsbüro Daniel Franke soweit
+nicht hiermit anderslautend vereinbart. Zahlbar innerhalb 14 Tage
+nachLeistungserbringung und Rechnungsstellung, rein netto.
 
 % ── Footer Seite 1 (manuell, da thispagestyle=empty) ──────────────────────
 \vfill

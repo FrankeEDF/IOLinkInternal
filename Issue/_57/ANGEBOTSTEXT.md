@@ -269,14 +269,9 @@ Aufwand: Firmware mit GUI Test Tool Erweiterung und Dokumentation
 | Erstellen der Trailer Beschrebung | 2         | h |
 | **Gesamt**                        | **36**    | h |
 
-
 Kosten: €88 * 36h = €3168
 
 **Angebotsgültig bis:** 10.04.2026
-
 **Ansprechpartner:** Daniel Franke
 
-**Datum:** [Heute]
 
-Es gelten die AGB's der Firma Entwicklungsbüro Daniel Franke soweit nicht hiermit anderslautend vereinbart.
-Zahlbar innerhalb 14 Tage nachLeistungserbringung und Rechnungsstellung, rein netto.
